@@ -1,0 +1,48 @@
+global proc string qlCreateMeshMixer() 
+{
+	string $selectionlist[];
+	string $node;
+	string $children[];
+	string $mixer;
+	string $mixerOut;
+	int $i=1;
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) == 0) {
+		error "select polygon meshes";
+		return "";
+	}
+
+	$mixer = `createNode qlMeshMixer`;
+	for ($node in $selectionList)
+	{
+		if(nodeType($node) == "transform")
+		{
+			$children= `listRelatives -s $node`;
+			$node = $children[0];
+		}
+		if(nodeType($node) == "mesh") 
+		{
+			connectAttr ($node+".outMesh") ($mixer+".inMesh"+$i);
+			addAttr -ln ($node+"_weight"+$i) -min 0 -smx 1.0 -k 1 -dv 1 -at double $mixer;
+			aliasAttr ("weight"+$i) ($mixer+"."+$node+"_weight"+$i);
+			$i++;
+			if($i>5) break;
+		}
+	}
+
+	if($i == 1) 
+	{
+		deleteNode $mixer;
+		return "";
+	}
+
+	$mixerOut = `createNode mesh -n ($mixer+"OutShape")`;
+	connectAttr ($mixer+".outMesh") ($mixerOut+".inMesh");
+
+	select -r $mixerOut;
+	assignShadingGroup initialShadingGroup;
+
+	return $mixer;
+};

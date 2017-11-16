@@ -1,0 +1,3869 @@
+//=============================================================================//
+//파이프라인 툴의 메인 UI입니다.
+//메인 UI 작동에 대한 모든 기능은 여기에 있습니다.
+//UI 버튼을 눌러 새로 생성되는 sub-UI는 각각 해당 멜 파일에 있습니다.
+//=============================================================================//
+
+
+
+//- 메인 UI생성
+	
+	
+	//- b2PipelineUI //----------------------------------------------------------------------------------------------------------------------------//
+	// b2PipelineUI
+	// 기능		- b2Pipeline 메인 UI 생성
+	// 작동절차	-
+	// 입력		-
+	// 출력		-
+	
+	global proc b2PipelineUI()
+	{
+		print "b2PipelineUI...........................................................................................................procedure start\n";
+		string $projRoot = `optionVar -q "projRoot"`;
+		int $selectedProjIndex = `optionVar -q "selectedProjIndex"`;
+		string $currProj = `optionVar -q "currentProj"`;
+		if (`window -exists b2PipeMainWin`)
+		{
+			deleteUI b2PipeMainWin;
+		}
+		if (`window -exists b2SubWin1`)
+		{
+			deleteUI b2SubWin1;
+		}
+		if (`window -exists b2SubWin2`)
+		{
+			deleteUI b2SubWin2;
+		}
+		string $window = `window -title "b2Pipeline"  -sizeable true -menuBar true
+			-menuBarVisible true b2PipeMainWin`;
+		
+		
+	//UI 루트 생성
+		string $rootUI = `columnLayout
+			-columnAttach both 5 -columnWidth 820 -rowSpacing 10 rootUI`;
+			menuBarLayout;
+				menu -label "Setup";
+					menuItem -label "ProjectManager" -command "b2ProjManager";
+					menuItem -label "Shot Definition Editor" -command "b2ShotDefEditorUI";
+					menuItem -label "Set Local Root" -command "b2setLocalRootWin";
+					menuItem -label "Exit" -command "deleteUI b2PipeMainWin";
+		setParent rootUI;
+			string $banner = `image -i "b1PipelineBanner.jpg"`;
+			separator -width 800 -horizontal true;
+			
+		//- 유저,프로젝트 정보 UI	
+			string $projInfoUI = `rowLayout
+					-numberOfColumns 6
+					-columnWidth 1 35 -columnAttach 1 left 0
+					-columnWidth 2 115 -columnAttach 2 left 0
+					-columnWidth 3 50 -columnAttach 3 right 0
+					-columnWidth 4 150 -columnAttach 4 left 0
+					-columnWidth 5 100 -columnAttach 5 right 0
+					-columnWidth 6 320 -columnAttach 6 left 0
+					projInfoUI`;	
+					text -font boldLabelFont -label "User : ";
+					textField -width 100 -text `getenv userName` -editable false;
+					text -font boldLabelFont -label "Project : ";
+					string $projList = `optionMenu -cc "b2UpdCurrProj" -width 150 projList`;
+						menuItem -label " Select Project ";
+					//프로젝트 리스트 검색 후 메뉴에 추가/마지막 선택한 프로젝트 선택
+						string $origList[] = `b2GetFolderList  $projRoot`;
+						for ($item in $origList)
+						{
+							menuItem -label $item;
+						}					
+					text -font boldLabelFont -label "Project Path : ";
+					string $projPath = `textFieldButtonGrp
+						-columnWidth3 1 1 100
+						-text ""
+						-buttonLabel "Open in Explorer"
+						-buttonCommand "b2OpenExplorer currentProjPath"
+						-editable false
+						currentProjPath`;	
+			setParent rootUI;
+			separator
+				-width 800 -horizontal true;
+		
+		//현재 프로젝트 리스트의 갯수와 선택된 인덱스 값을 비교하여 프로젝트의 갯수가 적거나 0이면 무조건 인덱스 값을 1로 설정
+		if( $selectedProjIndex > `optionMenu -q -numberOfItems projList` || $selectedProjIndex == 0 )
+		{
+			optionMenu -e -sl 1 projList;
+		}
+		else
+		{
+			optionMenu -e -sl $selectedProjIndex projList;
+		}
+		//-/
+
+		
+	//어셋 브라우저와 샷 브라우저를 위한 탭UI
+			string $tabs = `tabLayout -scr 0 -innerMarginWidth 0 -innerMarginHeight 0 mainTabLayout`;
+		
+		//- 어셋 탭
+			string $assetTab = `columnLayout -columnAttach left 0 -rowSpacing 10 -columnWidth 810 assetTab`;
+
+			//어셋 관리 영역======================================================================
+				string $assetManagerArea = `formLayout -width 800 -numberOfDivisions 100 assetManagerArea`;		
+
+				//- 어셋 타입 리스트
+					string $assetTypeSelectorLayout = `columnLayout -columnWidth 121 -columnAttach "both" 0 -columnAlign "left" -rowSpacing 5 assetTypeSelectorLayout`;
+						text -font boldLabelFont -label "Asset Type" assetTypeListLabel;
+						string $assetTypeList = `textScrollList -sc "b2UpdAssetNameList \"\"" -width 120 -height 250 assetTypeList`;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 60 -columnWidth 2 60 -columnAttach 1 "both" 0 -columnAttach 2 "both" 0;
+							button -label "New..." -backgroundColor 0.5 0.8 0.5 -command "b2NewAssetTypeWin";
+							button -label "Delete" -backgroundColor 0.8 0.5 0.5 -command "b2RemoveSelected 2 1";
+							button -label "--";
+							button -label "--";
+				//-/
+								
+				//- 어셋 네임 리스트
+				setParent assetManagerArea;
+					string $assetNameSelectorLayout = `columnLayout -columnWidth 151 -columnAttach "both" 0 -columnAlign "left" -rowSpacing 5 assetNameSelectorLayout`;
+						text -font boldLabelFont -label "Asset";
+						string $assetNameList = `textScrollList -sc "b2UpdAssetCompoList \"\"" -width 151 -height 250 assetNameList`;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 75 -columnWidth 2 75 -columnAttach 1 "both" 0 -columnAttach 2 "both" 0;
+							button -label "New..." -backgroundColor 0.5 0.8 0.5 -command "b2NewAssetWin";
+							button -label "Delete" -backgroundColor 0.8 0.5 0.5 -command "b2RemoveSelected 2 2";
+							button -label "--";
+							button -label "--";
+				//-/
+								
+				//- 어셋 컴포넌트 리스트
+				setParent assetManagerArea;
+					string $assetCompoSelectorLayout = `columnLayout -columnWidth 120 -columnAttach "both" 0 -columnAlign "left" -rowSpacing 5 assetCompoSelectorLayout`;
+						text -font boldLabelFont -label "Component";
+						string $assetCompoList = `textScrollList -sc "b2UpdAssetCompoSelected" -width 98 -height 250 assetCompoList`;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 60 -columnWidth 2 60 -columnAttach 1 "both" 0 -columnAttach 2 "both" 0;
+							button -label "New..." -backgroundColor 0.5 0.8 0.5 -command "b2NewAssetCompoWin";
+							button -label "Delete" -backgroundColor 0.8 0.5 0.5 -command "b2RemoveSelected 2 3";
+							button -label "--";
+							button -label "--";
+				//-/							
+							
+				setParent assetManagerArea;					
+					string $separator1 = `separator -horizontal true -width 410 -style "in"`;
+
+				//- 어셋 상태 디스플레이 영역
+					string $previewFrame = `frameLayout
+						-label Preview
+						-backgroundColor 0.0 0.0 0.0
+						-width 322 -height 262
+						-borderVisible true -borderStyle "out" previewFrame`;
+						string $previewImg = `image
+							-backgroundColor 0 0 0 
+							-i "noPreview.jpg" assetPreviewImg`;
+				setParent assetManagerArea;
+					string $previousImgButton = `button -label "<-" -width 30 -visible false -command "b2UpdPreview ast -1" previousImgButton`;
+					string $nextImgButton = `button -label "->" -width 30 -visible false -command "b2UpdPreview ast 1" nextImgButton`;
+					string $playbackButton = `button -label "Play .MOV" -width 90 -visible false -command "b2Playeblast ast" playButton`;
+
+				setParent assetManagerArea;
+					string $assetStatLayout = `columnLayout -columnAttach left 0 -rowSpacing 5 assetStatLayout`;
+						string $latestReleaseLabel = `text -label "Latest Release" latestReleaseLabel`;					
+						string $latestReleaseDisp = `textField 
+							-width 80
+							-text ""
+							-editable false 
+							latestReleaseDisp`;
+						string $latestDevelopLabel = `text -label "Latest Develop" latestDevelopLabel`;
+						string $latestDevelopDisp = `textField
+								-width 80
+								-text "" 
+								-editable false 
+								latestDevelopDisp`;
+						string $selectedVersionLabel = `text -label "Selected Version" selectedVersionLabel`;
+						string $selectedAssetVersionField = `textField 
+							-width 80 
+							-bgc 1 0.7 0.7
+							-editable false
+							selectedAssetVersionField`;
+				//-/
+								 
+				//- 어셋 히스토리 리스트==========================================================
+				setParent assetManagerArea;			
+					string $assetHistoryLayout = `columnLayout -columnAttach both 0 -columnAlign left -columnWidth 350 -rowSpacing 5 assetHistoryLayout`;
+						rowLayout -numberOfColumns 3 -columnAttach3 left right right -columnWidth3 100 130 120;
+							text -font boldLabelFont -label "History";
+							string $astHistLimit = `textFieldGrp -label "Expand History" -text "3" -columnWidth2 90 30 -cc "b2UpdHistory ast" astHistLimit`;
+							string $astHistFilter = `optionMenuGrp -label "Filter : " -changeCommand "b2UpdHistory ast" -columnWidth2 40 80 astHistFilter`;
+								menuItem -label "All";
+								menuItem -label "Develop";
+								menuItem -label "Release";
+					setParent ..;
+						string $astHistList = `scrollLayout -height 610 astHistList`;
+
+				setParent assetManagerArea;
+				//-/
+				
+				//- 레이아웃 정리 
+					formLayout -edit
+						-attachForm $assetTypeSelectorLayout "left" 5
+						-attachForm $assetTypeSelectorLayout "top" 10
+						-attachControl $assetNameSelectorLayout "left" 5 $assetTypeSelectorLayout
+						-attachForm $assetNameSelectorLayout "top" 10
+						-attachControl $assetCompoSelectorLayout "left" 5 $assetNameSelectorLayout
+						-attachForm $assetCompoSelectorLayout "top" 10
+						-attachForm $separator1 "left" 5
+						-attachControl $separator1 "top" 20 $assetTypeSelectorLayout
+						-attachControl $previewFrame "top" 25 $separator1
+						-attachForm $previewFrame "left" 5
+						-attachForm $previousImgButton "left" 15
+						-attachControl $previousImgButton "top" -25 $previewFrame
+						-attachControl $nextImgButton "left" -40 $previewFrame
+						-attachControl $nextImgButton "top" -25 $previewFrame
+						-attachControl $playbackButton "top" -25 $previewFrame
+						-attachControl $playbackButton "left" -205 $previewFrame
+						-attachControl $assetStatLayout "left" 10 $previewFrame
+						-attachControl $assetStatLayout "top" 25 $separator1						
+						-attachForm $assetHistoryLayout "right" 5
+						-attachForm $assetHistoryLayout "top" 5						
+						assetManagerArea;
+				//-/
+						
+			setParent assetTab;
+
+				string $astFileLocationFiled = `textFieldButtonGrp -label "File Location " -text "" -editable false -columnWidth3 80 615 150
+					-buttonLabel "Go to File Location" -buttonCommand "b2OpenExplorer astFileLocField" astFileLocField`;
+				separator -width 800;
+				int $cW = 160;
+				string $assetButtons = `rowColumnLayout
+					-numberOfColumns 5
+					-columnAttach 1 both 0 -columnAttach 2 both 0 -columnAttach 3 both 0 -columnAttach 4 both 0 -columnAttach 5 both 0
+					-columnWidth 1 $cW -columnWidth 2 $cW -columnWidth 3 $cW -columnWidth 4 $cW -columnWidth 5 $cW`;
+					button -label "GetAsset" -command "b2GetAssetCallback get";
+					button -label "Download Asset" -command "b2GetAssetCallback down";
+					button -label "Update Asset in the Scene" -command "b2UpdSceneAssetUI";
+					button -label "Save New Develop" -command "b2SaveNewAssetCallback dev";
+					button -label "Save New Release"  -command "b2SaveNewAssetCallback rel";
+					button -label "Replace Existing Asset" -ann "씬에 존재하는 어셋을 선택한 다른 어셋으로 교체합니다." -command "b2ReplaceSceneAssetUI";
+					button -label "Remove Asset" -ann "어셋을 씬에서 제거합니다." -command "b2RemoveAssetFromSceneUI";
+					button -label "N/A" ;
+					button -label "N/A" ;
+					button -label "Auto Select Path" -ann "열려있는 파일명을 기준으로 UI 항목을 선택 합니다." -command "b2autoSelectDir" ;
+			setParent mainTabLayout;
+		//-/
+		
+		//- 샷 탭
+			string $shotTab = `columnLayout -columnAttach left 0 -rowSpacing 10 -columnWidth 810 shotTab`;
+			//샷 관리 영역======================================================================
+				string $shotManagerArea = `formLayout -width 800 -numberOfDivisions 100 shotManagerArea`;		
+
+				// 시퀀스 리스트
+					string $seqListLayout = `columnLayout -columnAttach "both" 0 -columnAlign "left" -rowSpacing 5 seqListLayout`;
+						text -font boldLabelFont -label "Sequence" seqListLabel;
+						string $seqListCmd = "b2UpdShotList \"\"";
+						string $seqList = `textScrollList -sc $seqListCmd -width 98 -height 250 seqList`;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 49 -columnWidth 2 49 -columnAttach 1 both 0 -columnAttach 2 both 0;
+							button -label "New" -backgroundColor 0.5 0.8 0.5 -command "b2NewSequenceWin";
+							button -label "Delete" -backgroundColor 0.8 0.5 0.5 -command "b2RemoveSelected 3 1";
+							button -label "PlaySeq" -command "b2PlayblastCallback sht seq";
+							button -label "--";
+		
+				// 샷 리스트
+				setParent shotManagerArea;
+					string $shotListLayout = `columnLayout -columnAttach "both" 0 -columnAlign "left" -rowSpacing 5 shotListLayout`;
+						text -font boldLabelFont -label "Shot";
+						string $shotList = `textScrollList  -sc "b2UpdShotCompoList \"\"" -width 98 -height 250 shotList`;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 49 -columnWidth 2 49 -columnAttach 1 both 0 -columnAttach 2 both 0;
+							button -label "New" -backgroundColor 0.5 0.8 0.5 -command "b2NewShotWin";
+							button -label "Delete" -backgroundColor 0.8 0.5 0.5 -command "b2RemoveSelected 3 2";
+							button -label "Rename" -command "b2RenameShot";
+							button -label "--";
+				
+				// 샷 컴포넌트 리스트
+				setParent shotManagerArea;
+					string $shotCompoListLayout = `columnLayout -columnAttach "both" 0 -columnAlign "left" -rowSpacing 5 shotCompoListLayout`;
+						text -font "boldLabelFont" -label "Component";
+						string $shotCompoList = `textScrollList -sc "b2UpdShotCompoLayerList \"\"" -width 98 -height 250 shotCompoList`;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 49 -columnWidth 2 49 -columnAttach 1 "both" 0 -columnAttach 2 "both" 0;
+							button -label "New" -bgc 0.5 0.8 0.5 -command "b2NewShotCompoWin";
+							button -label "Delete" -bgc 0.8 0.5 0.5 -command "b2RemoveSelected 3 3";
+							button -label "--";
+							button -label "--";
+				
+				// 컴포넌트 레이어 리스트
+				setParent shotManagerArea;
+					string $shotCompoLayerListLayout = `columnLayout -columnWidth 98 -columnAttach "both" 0 -rowSpacing 5 shotCompoLayerListLayout`;
+						text -font "boldLabelFont" -label "Layer";
+						string $shotCompoLayerList = `textScrollList -width 98 -height 250 -sc "b2UpdShotCompoLayerSelected" shotCompoLayerList`;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 49 -columnWidth 2 49 -columnAttach 1 "both" 0 -columnAttach 2 "both" 0;
+							button -label "New" -bgc 0.5 0.8 0.5 -command "b2CreateNewShotCompoLayerWin";
+							button -label "Delete" -bgc 0.8 0.5 0.5 -command "b2RemoveSelected 3 4";
+							button -label "--";
+							button -label "--";
+				
+				setParent shotManagerArea;					
+				string $separator2 = `separator -horizontal true -width 410 -style "in"`;
+
+				// shot definition info 표시영역
+				setParent shotManagerArea;
+					string $shotDefInfoLayout = `columnLayout -columnAttach left 0 -rowSpacing 3 -columnWidth 200 shotDefInfoLayout`;
+						text -label "Shot Definition Info" -font boldLabelFont;
+						rowColumnLayout -numberOfColumns 2 -columnWidth 1 100 -columnWidth 2 250 -columnAlign 1 "right" -columnAlign 2 "left" -rowSpacing 1 3;
+							separator ; separator ;
+							text -label "Shot Name :  ";
+							text -label "" -font "obliqueLabelFont" shtNameInfoTxt;
+							separator  -style "in"; separator  -style "in";
+					setParent ..;
+						rowColumnLayout -numberOfColumns 4 -columnWidth 1 100 -columnWidth 2 75 -columnWidth 3 90 -columnWidth 4 85
+							-columnAlign 1 "right" -columnAlign 2 "left" -columnAlign 3 "right" -columnAlign 4 "left" -rowSpacing 1 3;
+							text -label "Image Width :  ";
+							text -label "" -font "obliqueLabelFont" resXInfoTxt;
+							text -label "Image Height :  ";
+							text -label "" -font "obliqueLabelFont" resYInfoTxt;
+							separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+							text -label "Start Frame :  ";
+							text -label "" -font "obliqueLabelFont" stFrameInfoTxt;
+							text -label "End Frame :  ";
+							text -label "" -font "obliqueLabelFont" edFrameInfoTxt;
+							separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+							text -label "FPS :  ";
+							text -label "" -font "obliqueLabelFont" fpsInfoTxt;
+							text -label ""; text -label "";
+							separator; separator; separator; separator;
+							
+					setParent ..;
+							
+				// 샷 히스토리 리스트
+				setParent shotManagerArea;			
+					string $shotHistoryLayout = `columnLayout -columnAttach both 0 -columnAlign left -columnWidth 350 -rowSpacing 5 shotHistoryLayout`;
+						rowLayout -numberOfColumns 3 -columnAttach3 left right right -columnWidth3 100 130 120;
+							text -font boldLabelFont -label "History";
+							string $astHistLimit = `textFieldGrp -label "Expand History" -text "3" -columnWidth2 90 30 -cc "b2UpdHistory sht" shtHistLimit`;
+							string $astHistFilter = `optionMenuGrp -label "Filter : " -changeCommand "b2UpdHistory sht" -columnWidth2 40 80 shtHistFilter`;
+								menuItem -label "All";
+								menuItem -label "Develop";
+								menuItem -label "Release";
+								menuItem -label "Elements";
+						// text -font boldLabelFont -label "History";
+					setParent ..;
+						string $shtHistList = `scrollLayout -height 482 shtHistList`;
+
+				// 샷 상태 디스플레이 영역
+				setParent shotManagerArea;
+					string $shotPreviewFrame = `frameLayout
+						-label Preview
+						-backgroundColor 0.0 0.0 0.0
+						-width 322 -height 262
+						-borderVisible true -borderStyle "out" shotPreviewFrame`;
+						string $shotPreviewImg = `image
+							-backgroundColor 0 0 0 
+							-i "noPreview.jpg" shotPreviewImg`;
+				setParent shotManagerArea;
+					string $shotPlayblastButton = `button -label "Play .MOV" -width 90 -visible false -command "b2PlayblastCallback sht single" shotPlayblastButton`;
+					string $shotPreviousImgButton = `button -label "<-" -width 30 -visible false -command "b2UpdPreview sht -1" shotPreviousImgButton`;
+					string $shotNextImgButton = `button -label "->" -width 30 -visible false -command "b2UpdPreview sht 1" shotNextImgButton`;
+				setParent shotManagerArea;
+					string $shotStatLayout = `columnLayout -columnAttach left 0 -rowSpacing 5 shotStatLayout`;
+						string $shotLatestReleaseLabel = `text -label "Latest Release" shotLatestReleaseLabel`;					
+						string $shotLatestReleaseDisp = `textField 
+							-width 80
+							-text ""
+							-editable false 
+							shotLatestReleaseDisp`;
+						string $shotLatestDevelopLabel = `text -label "Latest Develop" shotLatestDevelopLabel`;
+						string $shotLatestDevelopDisp = `textField
+								-width 80
+								-text "" 
+								-editable false 
+								shotLatestDevelopDisp`;
+						string $shotSelectedVersionLabel = `text -label "Selected Version" shotSelectedVersionLabel`;
+						string $shotSelectedVersionField = `textField 
+							-width 80 
+							-bgc 1 0.7 0.7
+							-editable false
+							selectedShotVersionField`;
+
+				setParent shotManagerArea;
+				
+				// 레이아웃 정리
+					formLayout -edit
+						-attachForm $seqListLayout "left" 5
+						-attachForm $seqListLayout "top" 10
+						-attachControl $shotListLayout "left" 1 $seqListLayout
+						-attachForm $shotListLayout "top" 10
+						-attachControl $shotCompoListLayout "left" 1 $shotListLayout
+						-attachForm $shotCompoListLayout "top" 10
+						-attachControl $shotCompoLayerListLayout "left" 1 $shotCompoListLayout
+						-attachForm $shotCompoLayerListLayout "top" 10
+						-attachForm $separator2 "left" 5
+						-attachControl $separator2 "top" 20 $seqListLayout
+						-attachControl $shotPreviewFrame "top" 25 $separator2
+						-attachForm $shotPreviewFrame "left" 5
+						-attachForm $shotDefInfoLayout "right" 5
+						-attachForm $shotDefInfoLayout "top" 10
+						-attachForm $shotPreviousImgButton "left" 15
+						-attachControl $shotPreviousImgButton "top" -25 $shotPreviewFrame
+						-attachControl $shotNextImgButton "left" -40 $shotPreviewFrame
+						-attachControl $shotNextImgButton "top" -25 $shotPreviewFrame
+						-attachControl $shotPlayblastButton "top" -25 $shotPreviewFrame					
+						-attachControl $shotPlayblastButton "left" -205 $shotPreviewFrame
+						-attachControl $shotStatLayout "left" 10 $shotPreviewFrame
+						-attachControl $shotStatLayout "top" 25 $separator2						
+						-attachForm $shotHistoryLayout "right" 5
+						-attachControl $shotHistoryLayout "top" 10 $shotDefInfoLayout
+					shotManagerArea;
+
+			setParent $shotTab;
+
+				string $shtFileLocationFiled = `textFieldButtonGrp -label "File Location " -text "" -editable false -columnWidth3 80 615 150
+					-buttonLabel "Go to File Location" -buttonCommand "b2OpenExplorer shtFileLocField" shtFileLocField`;
+				separator -width 800;
+	//			int $cW = 160;
+				string $shotButtons = `rowColumnLayout 
+					-numberOfColumns 5
+					-columnAttach 1 both 0 -columnAttach 2 both 0 -columnAttach 3 both 0 -columnAttach 4 both 0 -columnAttach 5 both 0
+					-columnWidth 1 $cW -columnWidth 2 $cW -columnWidth 3 $cW -columnWidth 4 $cW -columnWidth 5 $cW`;
+				button -label "Start New Shot" -ann "프로젝트 혹은 시퀀스의 기본 정보로부터 새로운 씬을 구성합니다" -command "b2StartNewShotWin";
+				button -label "Download Shot Files" -ann "등록된 씬 파일을 로컬 드라이브로 다운로드 합니다." -command "b2GetShotCallback down";			
+				button -label "Import / Reference" -ann "등록된 씬 파일을 작업중인 씬으로 불러들입니다." ;
+				button -label "Save New Develop" -ann "현재 열려있는 씬을 신규 Develop으로 등록합니다." -command "b2SaveNewShotCallback dev";
+				button -label "Release Shot" -ann "현재 열려있는 씬을 Release 합니다." -command "b2SaveNewShotCallback rel" ;
+				button -label "Get Released Files" -ann "선택한 Release된 파일을 작업중인 씬으로 불러들이거나 씬의 내용을 갱신합니다." -command "b2GetReleasedFilesCallback";
+				button -label "Update Asset in the Scene" -ann "씬에 존재하는 어셋을 최신 버전으로 업데이트 합니다." -command "b2UpdSceneAssetUI";
+				button -label "Remove Asset" -ann "어셋을 씬에서 제거합니다." -command "b2RemoveAssetFromSceneUI" ;
+				button -label "Correct Namespaces" -ann "실제 어셋 파일과 네임스페이스가 일치하지 않는 경우 어셋파일에 맞춰 네임스페이스를 수정합니다." -command "b2CorrectNamespaces";				
+				button -label "Auto Select Path" -ann "열려있는 파일명을 기준으로 UI 항목을 선택 합니다." -command "b2autoSelectDir" ;
+
+				
+				
+		//-/
+		setParent mainTabLayout;
+			tabLayout -edit -tabLabel $assetTab "Asset Browser" -tabLabel $shotTab "Shot Browser" mainTabLayout;
+		showWindow $window;
+		b2UpdateUI;
+		b2autoSelectDir;
+		print "b2PipelineUI.............................................................................................................procedure end\n";
+	}
+	
+	//-/
+
+	
+//-/
+
+
+//- 메인 UI 내용 작성 및 갱신
+
+
+	//- b2UpdateUI //------------------------------------------------------------------------------------------------------------------------------//
+	global proc b2UpdateUI()
+	{
+		print "b2UpdateUI.............................................................................................................procedure start\n";
+		b2UpdateProj;
+		b2UpdAssetTypeList "";
+		b2UpdSequenceList "";
+		print "b2UpdateUI...............................................................................................................procedure end\n";
+	}
+	
+	//-/
+
+
+	//- b2UpdateProj //----------------------------------------------------------------------------------------------------------------------------//
+	// 프로젝트 옵션메뉴를 선택하면 선택 값을 받아 변수 갱신
+	global proc b2UpdateProj()
+	{
+		print "b2UpdateProj...........................................................................................................procedure start\n";
+		string $projRoot = `optionVar -q "projRoot"`;
+		string $selectedProj = `optionMenu -q -v projList`;
+		int $selectedProjIndex = `optionMenu -q -sl projList`;
+		optionVar -iv "selectedProjIndex" $selectedProjIndex;
+		optionVar -sv "selectedProjName" $selectedProj;
+		string $currentProjPath = b2AddSlash (`b2AddSlash $projRoot` + $selectedProj);
+		textFieldButtonGrp -e -tx $currentProjPath currentProjPath;
+		print "b2UpdateProj.............................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2UpdAssetTypeList //----------------------------------------------------------------------------------------------------------------------//
+	// 어셋타입 리스트 갱신
+	global proc b2UpdAssetTypeList(string $newItem)
+	{
+		print "b2UpdAssetTypeList.....................................................................................................procedure start\n";
+		string $oldAstTypeList[] = `textScrollList -q -allItems assetTypeList`;
+		string $selAstType[] = `textScrollList -q -selectItem assetTypeList`;
+		textScrollList -edit -removeAll assetTypeList;	
+		string $path = `b2GetFileName 2 "" "" "" 0 "folder" 0`;
+		string $newAstTypeList[] = `b2GetFolderList $path`;
+		for ($item in $newAstTypeList)
+		{
+			textScrollList -edit -append $item assetTypeList;
+		}
+		if ($newItem != "")
+		{
+			textScrollList -edit -selectItem $newItem assetTypeList;
+		}
+		b2UpdAssetNameList "";
+		b2InitHistory "ast";
+		print "b2UpdAssetTypeList.......................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2UpdAssetNameList //----------------------------------------------------------------------------------------------------------------------//
+	// 어셋 네임 리스트 갱신
+	global proc b2UpdAssetNameList(string $newItem)
+	{
+		print "b2UpdAssetNameList.....................................................................................................procedure start\n";
+		string $oldAstNameList[] = `textScrollList -q -allItems assetNameList`; //원래 리스트 목록
+		string $newAstNameList[];
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 1`;
+		string $selAstName[] = `textScrollList -q -selectItem assetNameList`;
+		if (size($oldAstNameList)) //원래 목록이 있다면 전부 삭제
+		{
+			textScrollList -edit -removeAll assetNameList;
+		}			
+		if (size($selItem[0]))
+		{		
+			string $path = `b2GetFileName 2 $selItem[0] "" "" 0 "folder" 0`;
+			$newAstNameList = `b2GetFolderList $path`;
+			for ($item in $newAstNameList) //새 목록 작성
+			{
+				textScrollList -edit -append $item assetNameList;
+			}
+		}
+		if ($newItem != "")
+		{
+			textScrollList -edit -selectItem $newItem assetNameList;
+		}
+
+		
+		b2UpdAssetCompoList "";
+		b2UpdFileLocField "ast" 1;
+		b2InitHistory "ast";
+		b2InitStat "ast";
+		print "b2UpdAssetNameList.......................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2UpdAssetCompoList //---------------------------------------------------------------------------------------------------------------------//
+	// 어셋 컴포넌트 리스트 갱신	
+	global proc b2UpdAssetCompoList( string $newItem )
+	{
+		print "b2UpdAssetCompoList....................................................................................................procedure start\n";
+		string $oldAstCompoList[] = `textScrollList -q -allItems assetCompoList`;
+		string $newAstCompoList[];
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 2`;
+		if (`size($oldAstCompoList)`)
+		{
+			textScrollList -edit -removeAll assetCompoList;
+		}
+		if (size($selItem[1]))
+		{
+			string $path = `b2GetFileName 2 $selItem[0] $selItem[1] "" 0 "folder" 0`;
+			$newAstCompoList = `b2GetFolderList $path`;
+			for ($item in $newAstCompoList)
+			{
+				textScrollList -edit -append $item assetCompoList;
+			}
+		}
+		if ($newItem != "")
+		{
+			textScrollList -edit -selectItem $newItem assetCompoList;
+		}
+		b2InitHistory "ast";
+		b2UpdFileLocField "ast" 2;
+		b2InitStat "ast";
+		print "b2UpdAssetCompoList......................................................................................................procedure end\n";
+	}
+	//-/
+
+	
+	//- b2UpdAssetCompoSelected //-----------------------------------------------------------------------------------------------------------------//
+	global proc b2UpdAssetCompoSelected ()
+	{
+		print "b2UpdAssetCompoSelected................................................................................................procedure start\n";
+		string $currSelItem[] = `textScrollList -q -selectItem assetCompoList`;
+		b2UpdAssetCompoList $currSelItem[0];
+		b2UpdFileLocField "ast" 3;
+		b2UpdHistory "ast";
+		print "b2UpdAssetCompoSelected..................................................................................................procedure end\n";
+	}
+	//-/
+	
+
+	//- b2InitStat //------------------------------------------------------------------------------------------------------------------------------//
+	// 어셋/샷 상태표시영역 초기화
+	global proc b2InitStat( string $type)
+	{
+		print "b2InitStat.............................................................................................................procedure start\n";
+		int $exists = `textField -exists latestDevelopDisp`;
+		if ($type == "ast")
+		{
+			textField -edit -tx "None" latestDevelopDisp;
+			textField -edit -tx "None" latestReleaseDisp;
+			textField -edit -tx "None" selectedAssetVersionField;
+			b2InitPreview "ast";
+		}
+		else
+		{
+			textField -edit -tx "None" shotLatestDevelopDisp;
+			textField -edit -tx "None" shotLatestReleaseDisp;
+			textField -edit -tx "None" selectedShotVersionField;
+			b2InitPreview "sht";
+		}
+		print "b2InitStat...............................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2UpdStat //-------------------------------------------------------------------------------------------------------------------------------//
+	// 어셋/샷 상태표시 갱신
+	global proc b2UpdStat( string $type )
+	{
+		print "b2UpdStat..............................................................................................................procedure start\n";
+		string $currentItem[];
+		string $latestDevelopFile;
+		string $latestReleaseFile;
+		string $latestDevelopVersionString;
+		string $latestReleaseVersionString;	
+		int $latestDevelopVersionInt[];
+		int $latestReleaseVersionint[];
+		
+		if ($type == "ast")
+		{
+			$currentItem = `b2GetCurrentlySelectedItem 2 3`;
+			$latestDevelopFile = `b2GetFileName 2 $currentItem[0] $currentItem[1] $currentItem[2] 0 "develop" 0`;
+			$latestDevelopVersionInt = `b2GetVersionFromFile $latestDevelopFile "v"`;
+			$latestDevelopVersionString = ("v" + b2Pad($latestDevelopVersionInt[0], 3));
+			$latestReleaseFile = `b2GetFileName 2 $currentItem[0] $currentItem[1] $currentItem[2] 0 "release" 0`;
+			$latestReleaseVersionInt = `b2GetVersionFromFile $latestReleaseFile "r"`;
+			$latestReleaseVersionString = ("r" + b2Pad($latestReleaseVersionInt[0], 3));
+			textField -edit -tx $latestDevelopVersionString latestDevelopDisp;
+			textField -edit -tx $latestReleaseVersionString latestReleaseDisp;
+		}
+		else
+		{
+			$currentItem = `b2GetCurrentlySelectedItem 3 4`;
+			$latestDevelopFile = `b2GetFileName2 $currentItem[0] $currentItem[1] $currentItem[2] $currentItem[3] 0 "develop" 0`;
+			$latestDevelopVersionInt = `b2GetVersionFromFile $latestDevelopFile "v"`;
+			$latestDevelopVersionString = ("v" + b2Pad($latestDevelopVersionInt[0], 3));
+			$latestReleaseFile = `b2GetFileName2 $currentItem[0] $currentItem[1] $currentItem[2] $currentItem[3] 0 "release" 0`;
+			$latestReleaseVersionInt = `b2GetVersionFromFile $latestReleaseFile "r"`;
+			$latestReleaseVersionString = ("r" + b2Pad($latestReleaseVersionInt[0], 3));
+			textField -edit -tx $latestDevelopVersionString shotLatestDevelopDisp;
+			textField -edit -tx $latestReleaseVersionString shotLatestReleaseDisp;
+			textField -edit -tx "None" selectedShotVersionField;
+		}
+		print "b2UpdStat................................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2UpdSequenceList //-----------------------------------------------------------------------------------------------------------------------//
+	// 시퀀스 리스트 갱신
+	global proc b2UpdSequenceList( string $newItem )
+	{
+		print "b2UpdSequenceList......................................................................................................procedure start\n";
+		string $oldSeqList[] = `textScrollList -q -allItems seqList`;
+		string $selSeq[] = `textScrollList -q -selectItem seqList`;
+		if (size($oldSeqList))
+		{
+			textScrollList -edit -removeAll seqList;
+		}
+		string $path = `b2GetFileName 3 "" "" "" 0 "folder" 0`;
+		string $newSeqList[] = `b2GetFolderList $path`;
+		for ($item in $newSeqList)
+		{
+			textScrollList -edit -append $item seqList;
+		}
+		if ($newItem != "")
+		{
+			textScrollList -edit -selectItem $newItem seqList;
+		}
+		b2UpdShotList "";
+	//	b2InitShotHistory;
+		print "b2UpdSequenceList........................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2UpdShotList //---------------------------------------------------------------------------------------------------------------------------//
+	// 샷 리스트 갱신
+	global proc b2UpdShotList( string $newItem )
+	{
+		print "b2UpdShotList..........................................................................................................procedure start\n";
+		string $oldShotList[] = `textScrollList -q -allItems shotList`;
+		string $newShotList[];
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 1`;
+		string $selShot[] = `textScrollList -q -selectItem shotList`;
+		if (size($oldShotList))
+		{
+			textScrollList -edit -removeAll shotList;
+		}
+		if (size($selItem[0]))
+		{
+			string $path = `b2GetFileName 3 $selItem[0] "" "" 0 "folder" 0`;
+			$newShotList = `b2GetFolderList $path`;
+			for ($item in $newShotList)
+			{
+				textScrollList -edit -append $item shotList;
+			}
+		}
+		if ($newItem != "")
+		{
+			textScrollList -edit -selectItem $newItem shotList;
+		}
+
+		b2UpdShotCompoList "";
+		b2UpdFileLocField "sht" 1;
+		b2InitStat "sht";
+		print "b2UpdShotList............................................................................................................procedure end\n";
+	}
+	//-/
+	
+	
+	//- b2UpdShotCompoList //----------------------------------------------------------------------------------------------------------------------//
+	// 샷 컴포넌트 리스트 갱신
+	global proc b2UpdShotCompoList( string $newItem )
+	{
+		print "b2UpdShotCompoList.....................................................................................................procedure start\n";
+		string $oldShotCompoList[] = `textScrollList -q -allItems shotCompoList`;
+		string $newShotCompoList[];
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 2`;
+		string $selShotCompo[] = `textScrollList -q -selectItem shotCompoList`;
+		if (size($oldShotCompoList))
+		{
+			textScrollList -edit -removeAll shotCompoList;
+		}
+		if (size($selItem[1]))
+		{
+			string $path = `b2GetFileName2 $selItem[0] $selItem[1] "" "" 0 "maya" 0`;
+				$path += "scenes/";
+			$newShotCompoList = `b2GetFolderList $path`;
+			for ($item in $newShotCompoList)
+			{
+				string $targetPath = $path + $item + "/";
+				textScrollList -edit -append $item shotCompoList;
+			}
+		}
+		if ($newItem != "")
+		{
+			textScrollList -edit -selectItem $newItem shotCompoList;
+		}
+		b2UpdShotCompoLayerList "";
+		b2UpdFileLocField "sht" 2;
+		b2UpdShotDefInfo "";
+		print "b2UpdShotCompoList.......................................................................................................procedure end\n";
+	}
+	//-/
+
+	
+	//- b2UpdShotCompoLayerList //-----------------------------------------------------------------------------------------------------------------//
+	global proc b2UpdShotCompoLayerList( string $newItem )
+	{
+		print "b2UpdShotCompoLayerList................................................................................................procedure start\n";
+		string $oldShotCompoLayerList[] = `textScrollList -q -allItems shotCompoLayerList`;
+		string $newShotCompoLayerList[];
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 3`;
+		string $selShotCompoLayer[] = `textScrollList -q -selectItem shotCompoLayerList`;
+		if (size($oldShotCompoLayerList))
+		{
+			textScrollList -edit -removeAll shotCompoLayerList;
+		}
+		if (size($selItem[2]))
+		{
+			string $path = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] "" 0 "folder" 0`;
+			$newShotCompoLayerList = `b2GetFolderList $path`;
+			for ($item in $newShotCompoLayerList)
+			{
+				textScrollList -edit -append $item shotCompoLayerList;
+			}
+		}
+		if ($newItem != "")
+		{
+			textScrollList -edit -selectItem $newItem shotCompoLayerList;
+		}
+		b2InitStat "sht";
+		b2InitHistory "sht";
+		b2UpdFileLocField "sht" 3;
+		print "b2UpdShotCompoLayerList..................................................................................................procedure end\n";
+	}
+	//-/
+	
+
+	//- b2UpdShotCompoLayerSelected //-------------------------------------------------------------------------------------------------------------//
+	global proc b2UpdShotCompoLayerSelected ()
+	{
+		print "b2UpdShotCompoLayerSelected............................................................................................procedure start\n";
+		string $currSelItem[] = `textScrollList -q -selectItem shotCompoLayerList`;
+		b2UpdShotCompoLayerList $currSelItem[0];
+		b2UpdFileLocField "sht" 4;
+		b2UpdHistory "sht";
+		print "b2UpdShotCompoLayerSelected..............................................................................................procedure end\n";
+	}
+	//-/
+	
+	
+	//- b2UpdShotDefInfo //------------------------------------------------------------------------------------------------------------------------//
+	// 기능		- UI에서 현재 선택된 shot의 기본 정보를 갱신.
+	//
+	global proc b2UpdShotDefInfo( string $file )
+	{
+		print "b2UpdShotDefInfo.......................................................................................................procedure start\n";
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 2`;
+		string $dirPath = `b2GetFileName2 $selItem[0] $selItem[1] "" "" 0 "folder" 0`;
+		string $defFile;
+		if( $file != "" )
+		{
+			$defFile = $file;
+		}
+		else
+		{
+			$defFile = $dirPath + $selItem[1] + "_def.xml";
+		}
+		string $shotName = $selItem[0];
+		if( size($selItem[1]) )
+		{
+			$shotName += "_" + $selItem[1];
+		}
+		string $shtInfoArray[] = `b2GetShotDefInfo $defFile`;
+		switch( $shtInfoArray[5] )
+		{
+			case "15":
+				$shtInfoArray[5] = "game";
+				break;
+			case "24":
+				$shtInfoArray[5] = "film";
+				break;
+			case "30":
+				$shtInfoArray[5] = "ntsc";
+				break;
+		}
+		
+		text -edit -label $shotName shtNameInfoTxt;		
+		text -edit -label $shtInfoArray[1] resXInfoTxt;
+		text -edit -label $shtInfoArray[2] resYInfoTxt;
+		text -edit -label $shtInfoArray[3] stFrameInfoTxt;
+		text -edit -label $shtInfoArray[4] edFrameInfoTxt;
+		text -edit -label $shtInfoArray[5] fpsInfoTxt;
+		print "b2UpdShotDefInfo.........................................................................................................procedure end\n";
+	}
+	//-/
+	
+	
+	//- b2UpdHistory //----------------------------------------------------------------------------------------------------------------------------//
+	// 히스토리 리스트 갱신
+	global proc int b2UpdHistory( string $type)
+	{
+		print "b2UpdHistory...........................................................................................................procedure start\n";
+		b2InitHistory $type;
+		b2CreateHistory $type;
+		b2CollapseHistory $type;
+		b2UpdStat $type;
+		b2InitPreview $type;
+		return 1;
+		print "b2UpdHistory.............................................................................................................procedure end\n";
+	}
+
+	//-/
+
+
+	//- b2InitHistory //---------------------------------------------------------------------------------------------------------------------------//
+	// 기능		- 히스토리 리스트 초기화
+	// 입력		- $type <-- ast:어셋, sht:샷
+	// 작동절차	- 정해진 이름의 히스토리 레이아웃(frameLayout)을 0부터 세어 갯수를 구한 후 하나씩 지운다.
+	// 출력		- 없음
+	// 
+	global proc b2InitHistory( string $type )
+	{
+		print "b2InitHistory..........................................................................................................procedure start\n";
+		string $childUI[];
+		if( $type == "ast" )
+		{
+			$childUI = `scrollLayout -q -childArray "astHistList"`;
+		}
+		else if( $type == "sht" )
+		{
+			$childUI = `scrollLayout -q -childArray "shtHistList"`;
+		}
+		for( $ui in $childUI )
+		{
+			deleteUI $ui;
+		}
+		print "b2InitHistory............................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2CollapseHistory //-----------------------------------------------------------------------------------------------------------------------//
+	// 기능		- 주어진 히스토리 리스트에서 visibility가 true인 frameLayout중 상위 세개까지를 제외한 나머지를 collapse 시킨다.
+	// 입력		- $type
+	// 작동절차	-
+	// 출력		-
+	//
+	global proc b2CollapseHistory(string $type)
+	{
+		print "b2CollapseHistory......................................................................................................procedure start\n";
+		int $existingLogCount = 0;
+		string $visibleHistory[];
+		string $historyLogPrefix;
+		string $historyLimitField;
+		if ($type == "ast")
+		{
+			$historyLogPrefix = "astHistLog";
+			$historyLimitField = "astHistLimit";
+		}
+		else if ($type == "sht")
+		{
+			$historyLogPrefix = "shtHistLog";
+			$historyLimitField = "shtHistLimit";
+		}
+		int $limit = `textFieldGrp -q -text $historyLimitField`;
+		string $historyLogName = $historyLogPrefix + $existingLogCount;
+		while (`frameLayout -exists $historyLogName`)
+		{
+			int $visible = `frameLayout -q -visible $historyLogName`;
+			if ($visible)
+			{
+				$visibleHistory[size($visibleHistory)] = $historyLogName;
+			}
+			$existingLogCount ++;
+			$historyLogName = ($historyLogPrefix + $existingLogCount);
+		}
+		if ($limit == 0)
+		{
+			for ($i = 0; $i < size($visibleHistory); $i++)
+			{
+				frameLayout -edit -collapse 0 $visibleHistory[$i];
+			}
+		}
+		else if (size($visibleHistory) > $limit)
+		{
+			for ($i = $limit ; $i < size($visibleHistory); $i ++)
+			{
+				frameLayout -edit -collapse 1 $visibleHistory[$i];
+			}
+		}
+		print "b2CollapseHistory........................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2CreateHistory //-------------------------------------------------------------------------------------------------------------------------//
+	// 기능		- 히스토리 리스트 생성
+	// 입력		- $type <-- ast 어셋, sht 샷
+	// 작동절차	- 현재 디스플레이 되고 있는 히스토리 UI를 초기화 시킨 후 히스토리 파일의 내용을 분해해서 각 이벤트별로 레이아웃과 버튼/스크롤 필드를 생성한 뒤 히스토리 리스트 레이아웃에 정렬시킴
+	//			  릴리즈 히스토리는 해당 파일의 목록을 같이 표시
+	// 출력		-
+	//
+	global proc b2CreateHistory( string $type )
+	{
+		print "b2CreateHistory........................................................................................................procedure start\n";
+		string $selItem[]; //UI에서 선택한 아이템
+		string $historyFile; //히스토리 파일 경로
+		string $historyStringArray[]; //히스토리 파일의 내용을 개별 이벤트 로그별로 분해한 array.
+		string $historyLayoutName; //어셋과 샷 히스토리 디스플레이를 위한 레이아웃 UI명(scrollLayout)
+		string $historyLogPrefix; //개별 이벤트 로그 표시를 위한 UI 요소명 prefix
+		string $historyButtonPrefix; //각 로그의 선택버튼명 prefix
+		string $historyFieldPrefix; //각 로그의 textScrollFiedl명 prefix
+		string $latestDevFile;
+		string $latestRelFile;
+		int $version[]; // b2GetVersionFromFile에서 추출된 version array
+		int $latestDev;
+		int $latestRel;
+		string $fileList[]; //각 릴리즈 이벤트에 릴리즈된 마야 파일 리스트
+
+		string $filter;
+			if ($type == "ast")
+				$filter = `optionMenuGrp -q -value astHistFilter`;
+			else if ($type == "sht")
+				$filter = `optionMenuGrp -q -value shtHistFilter`;
+		int $visibility;
+
+		if ($type == "ast") //업데이트할 히스토리가 어셋인 경우 변수설정
+		{
+			$selItem = `b2GetCurrentlySelectedItem 2 3`;
+			$historyFile = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "historyFile" 0`;
+			
+			$latestDevFile = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "develop" 0`;
+			if ($latestDevFile != "")
+			{
+				$version = `b2GetVersionFromFile $latestDevFile "v"`;
+			}
+			else
+			{
+				$version = { 0, 0 };
+			}
+			$latestDev = $version[0];
+
+			string $latestRelFile = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "release" 0`;
+			$version = `b2GetVersionFromFile $latestRelFile "r"`;
+			$latestRel = $version[0];
+			$historyStringArray = `b2GetHistoryString $historyFile`;
+			$historyLayoutName = "astHistList";
+			$historyLogPrefix = "astHistLog";
+			$historyButtonPrefix = "astHistButton";
+			$historyFieldPrefix = "astHistField";
+			b2InitHistory "ast";
+		}
+		else if ($type == "sht") //업데이트할 히스토리가 샷인 경우 변수설정
+		{
+			$selItem = `b2GetCurrentlySelectedItem 3 4`;
+			$historyFile = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "historyFile" 0`;
+			
+			$latestDevFile = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "develop" 0`;
+			$version = `b2GetVersionFromFile $latestDevFile "v"`;
+			$latestDev = $version[0];
+			
+			$latestRelFile = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "release" 0`;
+			$version = `b2GetVersionFromFile $latestRelFile "r"`;
+			$latestRel = $version[0];
+			
+			$historyStringArray = `b2GetHistoryString $historyFile`;
+			$historyLayoutName = "shtHistList";
+			$historyLogPrefix = "shtHistLog";
+			$historyButtonPrefix = "shtHistButton";
+			$historyFieldPrefix = "shtHistField";
+			b2InitHistory "sht";
+		}
+		
+		//- 필터가 elements가 아닌 경우 UI 생성
+		if( $filter == "Develop" || $filter == "Release" || $filter == "All" )
+		{
+			int $newLogCount = size($historyStringArray); //이벤트 갯수 확인
+			int $i = 0;
+			for ( $i; $i < $newLogCount ; $i++) //히스토리 갯수만큼 레이아웃과 컨트롤 생성 후 메인UI의 히스토리 레이아웃에 추가
+			{
+				string $historyLogName = ($historyLogPrefix + $i);
+				string $historyColumnName = ($historyLogPrefix + "C" + $i);
+				string $historyButtonName = ($historyButtonPrefix + $i);
+				string $historyFieldName = ($historyFieldPrefix + $i);
+				string $versionStringArray[] = `b2GetVersionFromHistory $historyStringArray[$i]`;
+				string $buttonLabel;
+				float $fieldColor[3];
+				float $buttonColor[3];
+
+				if ($versionStringArray[0]=="develop") //이벤트가 develop인 경우 UI생성
+				{
+					$fieldColor = { 0.21, 0.23, 0.23 };
+					$buttonColor = { 0.35, 0.35, 0.35 };
+					$buttonLabel = ("v" + $versionStringArray[1]);
+					if ($filter == "Release") // 정렬필터에 따른 visibility값 결정
+					{
+						$visibility = 0;
+					}
+					else
+					{
+						$visibility = 1;
+					}
+					frameLayout -label $buttonLabel -parent $historyLayoutName -visible $visibility -collapsable true -width 325 $historyLogName;
+						rowLayout -parent $historyLogName -numberOfColumns 2 -columnWidth 1 30 -columnWidth 2 290 -bgc 0.4 0.4 0.4 ($historyLogName + "Row");
+							string $command = ("b2HistoryButtonAction " + $historyButtonName + " " + $newLogCount + " " + $buttonLabel + " " + $versionStringArray[2]);
+							button -label "" -width 40 -height 120 -bgc $buttonColor[0] $buttonColor[1] $buttonColor[2] -command $command $historyButtonName;
+							scrollField -width 280 -height 120 -wordWrap true -editable false -bgc $fieldColor[0] $fieldColor[1] $fieldColor[2] -text $historyStringArray[$i] $historyFieldName;
+					setParent astHistList;				
+				}
+				else //이벤트가 release인 경우 UI생성
+				{
+					int $currentVersion = $versionStringArray[1];
+					int $offset = $latestRel - $currentVersion;
+					if ($type == "sht")
+					{
+						string $releasePath = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "release" $offset`;
+						string $camList[] = `getFileList -folder $releasePath -filespec "*.ma"`;
+						string $abcList[] = `getFileList -folder $releasePath -filespec "*.abc"`;
+						string $setList[] = `getFileList -folder $releasePath -filespec "*.editMA"`;
+						string $outList[] = `stringArrayCatenate $camList $abcList`;
+						$outList = `stringArrayCatenate $outList $setList`;
+						$fileList = $outList;
+					}
+					$fieldColor = {0.36, 0.4, 0.36};
+					$buttonColor = {0.55, 0.6, 0.55};
+					$buttonLabel = ("r" + $versionStringArray[1]);
+					if ( $filter == "Develop") // 정렬필터에 따른 visibility값 결정
+					{
+						$visibility = 0;
+					}
+					else
+					{
+						$visibility = 1;
+					}
+					frameLayout -label $buttonLabel -parent $historyLayoutName -visible $visibility -collapsable true -width 325 $historyLogName;
+						columnLayout -columnWidth 320 -columnAttach "left" 0 -rowSpacing 5 $historyColumnName;
+							rowLayout -numberOfColumns 2 -columnWidth 1 30 -columnWidth 2 290 -bgc 0.4 0.4 0.4 ($historyLogName + "Row");
+								string $command = ("b2HistoryButtonAction " + $historyButtonName + " " + $newLogCount + " " + $buttonLabel + " " + $versionStringArray[2]);
+								button -label "" -width 40 -height 120 -bgc $buttonColor[0] $buttonColor[1] $buttonColor[2] -command $command $historyButtonName;
+								scrollField -width 278 -height 120 -wordWrap true -editable false -bgc $fieldColor[0] $fieldColor[1] $fieldColor[2] -text $historyStringArray[$i] $historyFieldName;
+						setParent ..;
+					
+							if ($type == "sht") //shot release인 경우 해당 폴더에 있는 마야 파일 리스트를 체크박스로 보여줌
+							{
+								for ( $eachItem in $fileList ) //체크박스 버튼 이름을 위해 파일 확장자의 '.' 문자를 '_' 문자로 바꿈
+								{
+									string $matchMa = `match ".ma$" $eachItem`;
+									string $matchAbc = `match ".abc$" $eachItem`;
+									string $matchEditMA = `match ".editMA$" $eachItem`;
+									string $tempString;
+									if( size($matchMa) )
+									{
+										$tempString = `substituteAllString $eachItem ".ma" "_ma"`;
+									}
+									else if( size($matchAbc) )
+									{
+										$tempString = `substituteAllString $eachItem ".abc" "_abc"`;
+									}
+									else
+									{
+										$tempString = `substituteAllString $eachItem ".editMA" "_editMA"`;
+									}
+									// string $chkBoxName = ( "fileChkBox_" + `basenameEx $eachItem`); //확장자를 이름에 포함하기 위해 변경
+									string $chkBoxName = "fileChkBox_" + $tempString;
+									checkBox -enable false -label $eachItem -changeCommand "b2UpdRelList" $chkBoxName;
+								}
+							}
+					setParent astHistList;
+				}
+			}
+		}
+		//-/
+		
+		//- 필터가 Elements인 경우 각 릴리즈된 요소별로 
+		else if( $filter == "Elements" )
+		{
+			string $relDir = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "folder" 0`;
+				$relDir += "release/";
+			string $baseName = $selItem[0] + "_" + $selItem[1] + "_"+ $selItem[2] + "_" + $selItem[3] + "_";
+			string $relFolderLst[] = `getFileList -folder $relDir -filespec "r*"`;
+			string $relFile[];
+			string $fileGrp[];
+			for( $eachFolder in $relFolderLst )
+			{
+				string $tmpCam[] = `getFileList -folder ($relDir + $eachFolder + "/") -filespec "*.ma"`;
+				string $tmpAbc[] = `getFileList -folder ($relDir + $eachFolder + "/") -filespec "*.abc"`;
+				string $tmpEditMA[] = `getFileList -folder ($relDir + $eachFolder + "/") -filespec "*.editMA"`;
+				appendStringArray $relFile $tmpCam `size($tmpCam)`;
+				appendStringArray $relFile $tmpAbc `size($tmpAbc)`;
+				appendStringArray $relFile $tmpEditMA `size($tmpEditMA)`;
+			}
+			string $tmpName;
+			//검색된 모든 릴리즈 파일을 그룹화(cha_tomo_001*a001_cut01_ani_master_cha_tomo_001_r001.ma 같은 식)
+			for( $eachFile in $relFile ) 
+			{
+				int $fileGrpSize = `size($fileGrp)`;
+				//샷 번호와 버전을 제거하여 elementName을 추출
+				$elementName = `substitute $baseName $eachFile ""`; 
+					$elementName = `basenameEx $elementName`;
+				int $elementNameSize = `size($elementName)`;
+				int $endIndex = $elementNameSize - 5; //뒤에서 5글자를 제거하면 버전번호 제거임.
+				$elementName = `substring $elementName 1 $endIndex `;
+				//$fileGrp에 저장된 그룹들의 첫번째 이름과 비교
+				for( $j = 0; $j < $fileGrpSize; $j ++ )
+				{
+					//fileGrp에 있는 elementName과 비교하는 파일의  elementName을 비교
+					string $buffer[] = `stringToStringArray $fileGrp[$j] "*"`;
+					string $existingElement = $buffer[0];
+					string $compareElement = $elementName;
+					//같다면 해당 아이템에 *과 함께 파일명 추가
+					if( $existingElement == $compareElement )
+					{
+						//print ($compareElement + " is matches width Existing Element " + $existingElement + "\n");
+						string $tmpName = $fileGrp[$j];
+						$tmpName += "*" + $eachFile;
+						$fileGrp[$j] = $tmpName;
+						break;
+					}
+				}
+				if( $j >= $fileGrpSize )
+				{
+					$fileGrp[$fileGrpSize] = $elementName + "*" + $eachFile;
+				}
+			}
+			for( $eachGrp in $fileGrp )
+			{
+				string $buffer[] = `stringToStringArray $eachGrp "*"`;
+				string $elementName = $buffer[0];
+				string $layoutName = $elementName + "LstLayout";
+				stringArrayRemoveAtIndex( 0, $buffer );
+				string $files[] = $buffer;
+				$files = `sort $files`;
+				string $revFileArray[] = {};
+				string $revChkBoxArray[] = {};
+				int $o = size($files) - 1;
+
+				for( $eachItem in $files ) //각 어셋 그룹별 체크박스 버튼 이름 생성 및 최신버전이 위로 오도록 순서 뒤집기.
+				{
+					string $tempString;				
+					string $matchMa = `match ".ma$" $eachItem`;
+					string $matchAbc = `match ".abc$" $eachItem`;
+					string $matchEditMA = `match ".editMA$" $eachItem`;
+					if( size($matchMa) )
+					{
+						$tempString = `substituteAllString $eachItem ".ma" "_ma"`;
+					}
+					else if( size($matchAbc) )
+					{
+						$tempString = `substituteAllString $eachItem ".abc" "_abc"`;
+					}
+					else
+					{
+						$tempString = `substituteAllString $eachItem ".editMA" "_editMA"`;
+					}
+					$revFileArray[size($revFileArray)] = $files[$o];				
+					$revChkBoxArray[$o] = $tempString;
+					$o --;
+				}
+				// 체크박스 생성
+				frameLayout -label $elementName -parent shtHistList -collapsable false -width 325 $layoutName;
+					columnLayout -columnWidth 321 -columnAttach "both" 0 -columnAlign "left" -rowSpacing 5;
+						for( $p = 0; $p < size($revFileArray); $p++ )
+						{
+							print ("making checkbox for " + $revFileArray[$p] + "\n");
+							string $chkBoxName = "fileChkBox_" + $revChkBoxArray[$p];
+							checkBox -label $revFileArray[$p] -changeCommand "b2UpdRelList" $chkBoxName;
+						}
+						text -label "";
+			}
+			textFieldButtonGrp -edit -text "" shtFileLocField;
+		}
+		//-/
+		print "b2CreateHistory..........................................................................................................procedure end\n";
+	}
+	//-/
+	 
+	 
+	//- b2HistoryButtonAction //-------------------------------------------------------------------------------------------------------------------//
+	// 기능		- 히스토리 버튼을 눌렀을 때 UI 업데이트
+	// 입력		- $buttonName <-- 히스토리 리스트의 선택한 버튼 이름, $index <-- 리스트에서 선택한 버전의 순서, 
+	//			  $mainVersion <-- 리스트에서 선택한 버튼 이름에서 가져온 버전 번호, $subVersion <-- 샷인경우 릴리즈를 생성한 develop 버전 번호)
+	// 작동절차	- 입력받은 정보에서 버전 문자열과 업데이트할 textField를 결정하고 업데이트
+	// 출력		- 없음
+	//
+	global proc b2HistoryButtonAction( string $buttonName, int $index, string $mainVersion, string $subVersion)
+	{
+		print "b2HistoryButtonAction..................................................................................................procedure start\n";
+		string $historyLogPrefix; //히스토리 로그 UI 공통이름
+		string $historyButtonPrefix; // 버튼 공통이름
+		string $historyFieldPrefix; // 히스토리 로그 표시 scrollField 공통이름
+		string $selectedItemVersionField;
+		string $buttonNum = `match "[0-9]+" $buttonName`;		
+		string $filePathField;
+		string $type = `substring $buttonName 1 3`;
+		string $versionString;
+		string $selItem[];
+		string $mode; //b2GetFileName에 사용할 $mode 변수
+		string $latestVersionString;
+		int $latestVersion;
+		int $selectedVersion;
+		int $offset;
+		string $filePath;
+		string $dirPath;
+		string $infoFile;
+		string $eventString = `match "[a-zA-Z]" $mainVersion`;
+		string $chkBoxLst[]; // 존재하는 모든 체크박스
+		string $enableChkBoxLst[]; // enable시킬 체크박스
+		string $disableChkBoxLst[]; // disable시킬 체크박스
+		
+		// 어셋 버튼인 경우 변수 설정
+		if ($type == "ast")
+		{
+			$historyLogPrefix = "astHistLog";
+			$historyButtonPrefix = "astHistButton";
+			$historyFieldPrefix = "astHistField";
+			$versionString = $mainVersion;
+			$selectedItemVersionField = "selectedAssetVersionField";
+			$selItem = `b2GetCurrentlySelectedItem 2 3`;
+			$filePathField = "astFileLocField";
+			if ($eventString == "v")
+			{
+				$mode = "develop";
+				$latestVersionString = `textField -q -text "latestDevelopDisp"`;
+				$latestVersion = `match "[0-9]+" $latestVersionString`;
+			}
+			else
+			{
+				$mode = "release";
+				$latestVersionString = `textField -q -text "latestReleaseDisp"`;
+				$latestVersion = `match "[0-9]+" $latestVersionString`;
+			}
+		}
+		// 샷인 경우 변수 설정
+		else if ($type == "sht")
+		{
+			$historyLogPrefix = "shtHistLog";
+			$historyButtonPrefix = "shtHistButton";
+			$historyFiledPrefix = "shtHistField";
+			$versionString = $mainVersion;
+			$selectedItemVersionField = "selectedShotVersionField";
+			$selItem = `b2GetCurrentlySelectedItem 3 4`;
+			$filePathField = "shtFileLocField";
+			if ($eventString == "v")
+			{
+				$mode = "develop";
+				$latestVersionString = `textField -q -text "shotLatestDevelopDisp"`;
+				$latestVersion = `match "[0-9]+" $latestVersionString`;
+			}
+			else
+			{
+				$mode = "release";
+				$latestVersionString = `textField -q -text "shotLatestReleaseDisp"`;
+				$latestVersion = `match "[0-9]+" $latestVersionString`;
+			}
+		}
+		
+		// b2GetFileName에 사용할 offset값 계산
+		$selectedVersion = `match "[0-9]+" $mainVersion`;
+		$offset = $latestVersion - $selectedVersion;
+		
+		if ($type == "ast") // 어셋인 경우 경로 생성
+		{
+			$filePath = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 $mode $offset`;
+			$dirPath = `dirname $filePath` + "/";
+		}
+		else if ($type == "sht") // 샷인 경우 경로 생성, info.xml파일 경로 생성
+		{
+			$filePath = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 $mode $offset`;
+			string $basename = `basenameEx $filePath`;
+			if ($mode == "develop")
+			{
+				$dirPath = `dirname $filePath` + "/";
+				$infoFile = $dirPath + "/" + $basename + "_info.xml";
+			}
+			else // 샷 릴리즈라면 기존에 enable된 릴리즈 파일 체크박스를 disable 시키고 부속된 체크박스를 enable
+			{
+				int $size = `size $filePath`;
+				//$dirPath = `substring $filePath 1 ($size - 1)`;
+				$dirPath = $filePath;
+				$infoFile = $dirPath  + $selItem[0] + "_" + $selItem[1] + "_" + $selItem[2] + "_" + $selItem[3] + "_" + $versionString + "_info.xml";
+				string $layoutName = $historyLogPrefix + "C" + $buttonNum;
+				string $childArray[] = `columnLayout -q -childArray $layoutName`;
+				for( $eachUI in $childArray )
+				{
+					string $match = `match "fileChkBox_" $eachUI`;
+					if( size($match) )
+					{
+						$enableChkBoxLst[size($enableChkBoxLst)] = $eachUI; //새로 enable시킬 체크박스 목록
+					}
+				}
+				$chkBoxLst = `lsUI -type "checkBox"`;
+				print "$chkBoxLst =\n";
+				print $chkBoxLst;
+				print "\n";
+				for( $eachChkBox in $chkBoxLst )
+				{
+					string $match = `match "fileChkBox_" $eachChkBox`;
+					int $stat = `checkBox -q -enable $eachChkBox`;
+					if( size($match) && $stat == 1 )
+					{
+						$disableChkBoxLst[size($disableChkBoxLst)] = $eachChkBox; //disable시킬 체크박스 목록
+					}
+				}
+			}
+		}
+		
+		//체크박스 상태 변경
+		for( $eachBox in $disableChkBoxLst )
+		{
+			checkBox -edit -enable false -value 0 $eachBox;
+		}
+		for( $eachBox in $enableChkBoxLst )
+		{
+			checkBox -edit -enable true -value 1 $eachBox;
+		}
+
+		string $selectedLayoutName = ($historyLogPrefix + $buttonNum + "Row");		
+		for ($i=0; $i<$index; $i++) //모든 히스토리 로그의 rowLayout 배경을 기본으로 돌림
+		{
+			string $logLayoutName = ($historyLogPrefix + $i + "Row");
+			rowLayout -edit -bgc 0.4 0.4 0.4 $logLayoutName;
+		}
+		
+		//기타 UI 업데이트
+		rowLayout -edit -bgc 1 0.8 0.3 $selectedLayoutName;
+		textField -edit -tx $versionString $selectedItemVersionField;
+		textFieldButtonGrp -edit -text $dirPath $filePathField;
+		b2InitPreview $type;
+		b2UpdPreview $type 0;
+		b2UpdShotDefInfo $infoFile;
+		
+		print "b2HistoryButtonAction....................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2InitPreview //---------------------------------------------------------------------------------------------------------------------------// 
+	// 어셋/샷 상태 디스플레이의 프리뷰 이미지 초기화
+	global proc b2InitPreview( string $type )
+	{
+		print "b2InitPreview..........................................................................................................procedure start\n";
+		string $previewImgControl;
+		string $previewImgFile;
+		string $previousButton;
+		string $nextButton;
+		string $playButton;
+		switch ($type)
+		{
+			case "ast":
+				string $currSelItem[] = `b2GetCurrentlySelectedItem 2 2`;
+				string $imgDirPath = `b2GetFileName 2 $currSelItem[0] $currSelItem[1] "" 0 "folder" 0`;
+				string $imgFile[] = `getFileList -folder $imgDirPath -filespec "*.jpg"`;
+				if( size($imgFile) )
+				{
+					$previewImgFile = $imgDirPath + $imgFile[0];
+				}
+				else
+				{
+					$previewImgFile = "noPreview.jpg";
+				}
+				
+				$previewImgControl = "assetPreviewImg";
+				$previousButton = "previousImgButton";
+				$nextButton = "nextImgButton";
+				$playButton = "playButton";
+				break;
+			case "sht":
+				$previewImgControl = "shotPreviewImg";
+				$previewImgFile = "noPreview.jpg";
+				$previousButton = "shotPreviousImgButton";
+				$nextButton = "shotNextImgButton";
+				$playButton = "shotPlayblastButton";
+				break;
+		}
+		image -edit -i $previewImgFile $previewImgControl;
+		button -edit -visible false $previousButton;
+		button -edit -visible false $nextButton;
+		button -edit -visible false $playButton;
+		print "b2InitPreview............................................................................................................prcedure end\n";
+	}
+	//-/
+
+
+	//- b2UpdPreview //----------------------------------------------------------------------------------------------------------------------------//
+	// 기능		- 어셋/샷의 히스토리 버튼이 선택 되었을때 프리뷰 이미지를 업데이트하고 이미지 넘김 버튼을 누를때 다음 혹은 이전 이미지를 디스플레이
+	// 입력		- $type <-- ast = 어셋, sht = 샷. $control <-- 이미지 넘김을 위한 증감값 1 = 다음 이미지, -1 = 이전 이미지
+	// 작동절차	- 어셋 혹은 샷이 저장된 디렉토리에 있는 preview image 리스트를 검색한 후 첫 번째 이미지를 표시. $control값에 따라 순서대로 증감.
+	//			- 만일 여러장의 이미지가 있다면 previous,next 버튼을 표시.
+	//			- .mov 파일이 있다면 play 버튼을 표시
+	// 출력		- 없음
+	//
+	global proc b2UpdPreview( string $type, int $control )
+	{
+		print "b2UpdPreivew...........................................................................................................procedure start\n";
+		string $previewImgControl; //이미지 ui
+		string $currentImage;
+		int $currentIndex = 0;
+		string $previousButton;
+		string $nextButton;
+		string $playButton;
+		string $targetPath;
+		string $images[];
+		string $movFiles[];
+
+		if ($type == "ast")
+		{
+			$previewImgControl = "assetPreviewImg";
+			$previousButton = "previousImgButton";
+			$nextButton = "nextImgButton";
+			$playButton = "playButton";
+			$targetPath = `textFieldButtonGrp -q -text "astFileLocField"`;
+		}
+		else if ($type == "sht")
+		{
+			$previewImgControl = "shotPreviewImg";
+			$previousButton = "shotPreviousImgButton";
+			$nextButton = "shotNextImgButton";
+			$playButton = "shotPlayblastButton";
+			$targetPath = `textFieldButtonGrp -q -text "shtFileLocField"`;
+		}
+		$images = `getFileList -folder ($targetPath + "/") -filespec "*.jpg"`;
+		print "$images =\n";
+		print $images;
+		print "\n";
+		$images = `sort $images`;
+		$movFiles = `getFileList -folder ($targetPath + "/") -filespec "*.mov"`;
+		$movFiles = `sort $movFiles`;
+
+		if (size($images)) //프리뷰 이미지가 존재할 경우 UI 갱신
+		{
+			int $endImgIndex = (size($images) -1);
+			print ( "$endImgIndex = " + $endImgIndex + "\n" );
+			$currentImage = `image -q -i $previewImgControl`;
+			$currentImage = (`basenameEx $currentImage` + ".jpg");
+			string $buffer[];
+			int $imgTypeCheck = `tokenize $currentImage "_" $buffer`; //파일명을 분해하여 대표 이미지인지 버전 스냅샷인지 확인
+			if ($currentImage != "noPreview.jpg" && $imgTypeCheck >= 6 ) //이미 디스플레이 된 이미지가 있는 경우
+			{
+				print "$currentImage is not noPreview.jpg\n";
+				for ($eachImg in $images)
+				{
+					print ( $eachImg + ".....\n" );
+					if ($currentImage == $eachImg)
+					{
+						
+						break;
+					}
+					else
+					{
+						$currentIndex ++;
+						print ( "$currentIndex = " + $currentIndex + "\n" );
+					}
+				}
+			}
+			$currentIndex += $control;
+			
+			if ($currentIndex <= 0) //첫번째 이미지를 디스플레이 할 경우 버튼 표시
+			{
+				button -edit -visible false $previousButton;			
+				if ($endImgIndex > 0) //앞으로 표시할 이미지가 더 있는 경우
+					button -edit -visible true $nextButton;
+				else
+					button -edit -visible false $nextButton;
+			}		
+			else if ($currentIndex > 0 && $currentIndex < $endImgIndex) //중간 이미지인 경우 버튼 표시
+			{
+				button -edit -visible true $previousButton;
+				button -edit -visible true $nextButton;
+			}
+			else if ($currentIndex >= $endImgIndex) //마지막 이미지인 경우 버튼 표시
+			{
+				button -edit -visible true $previousButton;
+				button -edit -visible false $nextButton;
+			}
+
+			string $targetFile = ($targetPath  + $images[$currentIndex]);
+			image -edit -i $targetFile $previewImgControl;
+		}
+		else
+		{
+			b2InitPreview $type;
+		}	
+		if (size($movFiles))
+		{
+			button -edit -visible true $playButton;
+		}
+		else
+		{
+			button -edit -visible false $playButton;
+		}
+		print "b2UpdPreview.............................................................................................................procedure end\n";
+	}
+	//-/
+
+	
+	//- b2UpdFileLocationField //------------------------------------------------------------------------------------------------------------------//
+	global proc b2UpdFileLocField( string $type, int $depth )
+	{
+		print "b2UpdFileLocationField.................................................................................................procedure start\n";
+		string $field;
+		string $selItem[];
+		string $path;
+		switch ($type)
+		{
+			case "ast":
+				$field = "astFileLocField";
+				$selItem = `b2GetCurrentlySelectedItem 2 $depth`;		
+				$path = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "folder" 0`;
+				break;
+			case "sht":
+				$field = "shtFileLocField";
+				$selItem = `b2GetCurrentlySelectedItem 3 $depth`;
+				$path = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "folder" 0`;
+		}
+		textFieldButtonGrp -edit -text $path $field;
+		print "b2UpdFileLocationField...................................................................................................procedure end\n";
+	}
+	//-/
+	
+	
+	//- b2UpdRelList //----------------------------------------------------------------------------------------------------------------------------//
+	global proc b2UpdRelList()
+	{
+		print "b2UpdRelList...........................................................................................................procedure start\n";
+		if( `window -exists b2SubWin1` )
+		{
+			string $title = `window -q -title b2SubWin1`;
+			if( $title == "b2GetReleasedAnimation" )
+			{
+				b2GetReleasedAniUI;
+			}
+		}
+		print "b2UpdRelList.............................................................................................................procedure end\n";
+	}
+	//-/
+
+	
+//-/
+
+
+//- 메인 UI 유틸리티
+
+	//- b2GetCurrentlySelectedItem //--------------------------------------------------------------------------------------------------------------//
+	// 기능		- 현재 선택 된 아이템의 계층 단계를 각 변수 값에 대입 후 반환
+	// 작동절차	-
+	// 입력		- $tab : 현재 UI에서 활성화 된 탭 [2:어셋, 3:샷]
+	//			- $depth : UI의 선택 리스트 단계
+	// 출력		-
+	//
+	global proc string[] b2GetCurrentlySelectedItem(int $tab, int $depth)
+	{
+		print "b2GetCurrentlySelectedItem.............................................................................................procedure start\n";
+		string $list1;
+		string $list2;
+		string $list3;
+		string $list4;
+		string $returnValue[];
+		
+		if ($tab == 2) //어셋인 경우
+		{
+			$list1 = "assetTypeList";
+			$list2 = "assetNameList";
+			$list3 = "assetCompoList";
+		}
+		else if ($tab == 3) //샷인 경우
+		{
+			$list1 = "seqList";
+			$list2 = "shotList";
+			$list3 = "shotCompoList";
+			$list4 = "shotCompoLayerList";
+		}
+		string $item1[] = `textScrollList -q -selectItem $list1`;
+		string $item2[] = `textScrollList -q -selectItem $list2`;
+		string $item3[] = `textScrollList -q -selectItem $list3`;
+		string $item4[];
+		if ($tab == 3)
+		{
+			$item4 = `textScrollList -q -selectItem $list4`;
+		}
+		if ($depth > 0)
+		{
+			$returnValue[0] = $item1[0];
+			if ($depth > 1)
+			{
+				stringArrayInsertAtIndex (1, $returnValue, $item2[0]);
+				if ($depth > 2)
+				{
+					stringArrayInsertAtIndex (2, $returnValue, $item3[0]);
+					if ($depth > 3)
+					{
+						stringArrayInsertAtIndex (3, $returnValue, $item4[0]);
+					}
+				}
+			}
+		}
+		print "b2GetCurrentlySelectedItem...............................................................................................procedure end\n";
+		return $returnValue;		
+	}
+	//-/
+
+	
+//-/
+
+
+//- 메인 UI 버튼 기능
+
+
+	//- 공통 기능
+	
+		//- b2OpenExolorer //----------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 전달 받을 경로에서 윈도우 익스플로러 실행
+		// 입력		- $fieldName <-- 경로값을 받아올 textField 이름, $path <-- 실행할 위치
+		// 작동절차	- $fieldName이 있는 경우 해당 textField에서 경로를 받아오고 없는 경우 $path의 값을 이용
+		// 출력		- 윈도우 익스플로러 실행
+		//
+		global proc b2OpenExplorer(string $pathString)
+		{
+			print "b2OpenExplorer.........................................................................................................procedure start\n";
+			string $match = `match "[a-zA-Z]:/" $pathString`;
+			string $path;
+			if (size($match))
+			{
+				$path = $pathString;
+			}
+			else
+			{
+				$path = `textFieldButtonGrp -q -text $pathString`;
+			}
+			$path = toNativePath($path);
+			string $syscmd = "start explorer /n,/e, " + $path;
+			system( $syscmd );
+			print "b2OpenExplorer...........................................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2FileDialog //------------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 파일 다이얼로그 창 생성
+		// 입력		- $mode == dir :디렉토리
+		//			- $mode == file : 파일
+		//			- $filter == maya : 마야 파일
+		//			- $filter == mov : 퀵타임
+		//			- $filed == 브라우져를 요청한 텍스트필드 그룹명.
+		// 작동절차	- $mode와 $filter값에 따라 fileDialog2 명령의 옵션을 설정하고 선택한 파일/디렉토리 경로를 요청한 필드로 반환
+		// 출력		- 없음
+		//
+		global proc b2FileDialog(string $mode, string $filter, string $field )
+		{
+			print "b2FileDialog...........................................................................................................procedure start\n";
+			int $fileMode;
+			string $fileFilter;
+			string $selFileFilter;
+			switch ($mode)
+			{
+				case "dir":
+					$fileMode = 2;
+					break;
+				case "file":
+					$fileMode = 1;
+					break;
+				case "fileMulti":
+					$fileMode = 4;
+			}
+			switch ($filter)
+			{
+				case "maya":
+					$fileFilter = "Maya Files (*.ma *.mb);;Maya ASCII (*.ma);;Maya Binary (*.mb);;All Files (*.*)";
+					$selFileFilter = "Maya ASCII";
+					break;
+				case "mov":
+					$fileFilter = "Quicktime Movie File (*.mov)";
+					$selFileFilter = "Quicktime";
+					break;
+				case "none":
+					$fileFilter = "";
+					$selFileFilter = "";
+					break;
+			}
+			string $fileDialog[] = `fileDialog2 -caption "Select local working directory" -fileFilter $fileFilter -selectFileFilter $selFileFilter -fileMode $fileMode -okCaption "Select"`;
+			for( $i = 0; $i < size($fileDialog); $i++ )
+			{
+				$fileDialog[$i] = `substituteAllString $fileDialog[$i] "\\" "/"`;
+			}
+			if( $mode == "dir" )
+			{
+				$fileDialog[0] = `b2AddSlash $fileDialog[0]`;
+			}
+			//요청해온 $field가 textFieldGrp인지 textFieldButtonGrp인지 확인 후 edit 명령을 다르게 실행.
+			string $fieldUIType = `objectTypeUI $field`;	
+			if ($fieldUIType == "rowGroupLayout")
+			{
+				string $uiElements[] = `layout -q -ca $field`;
+				if (`size($uiElements)` == 3)
+				{
+					textFieldButtonGrp -edit -text $fileDialog[0] $field;
+				}
+				else if (`size($uiElements)` == 2)
+				{
+					textFieldGrp -edit -text $fileDialog[0] $field;		
+				}
+			}
+			else if ($fieldUIType == "field")
+			{
+				textField -edit -text $fileDialog[0] $field;
+			}
+			else if ($fieldUIType == "textScrollList")
+			{
+				print "$fileDialog =\n";
+				print $fileDialog;
+				print "\n";
+				for( $eachItem in $fileDialog )
+				{
+					textScrollList -edit -append $eachItem $field;
+				}
+			}
+			print "b2FileDialog.............................................................................................................procedure end\n";
+		}
+		//-/
+
+	
+		//- b2RemoveSelected //--------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 어셋/샷 리스트 UI에서 선택한 아이템 삭제
+		// 입력		- $tab <- 2 == 어셋, 3 = 샷
+		//
+		//
+		global proc b2RemoveSelected(int $tab, int $depth)
+		{
+			print "b2RemoveSelected.......................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem $tab $depth`;
+			string $list[4];
+			switch ($tab)
+			{
+				case 2:
+					$list = { "b2UpdAssetTypeList \"\"", "b2UpdAssetNameList \"\"", "b2UpdAssetCompoList \"\"", "" };
+					break;
+				case 3:
+					$list = { "b2UpdSequenceList \"\"", "b2UpdShotList \"\"", "b2UpdShotCompoList \"\"", "b2UpdShotCompoLayerList \"\"" };
+					break;
+			}
+			print "$list =\n";
+			print $list;
+			print "\n";
+			if ($selItem[$depth - 1] == "")
+			{
+				confirmDialog -title "Warning!" -message "삭제할 항목을 선택해주세요";
+			}
+			else
+			{
+				int $result = `b2RemoveItem $tab $selItem[0] $selItem[1] $selItem[2] $selItem[3]`;
+				print "$result =\n";
+				print $result;
+				print "\n";
+				if ($result)
+				{
+					string $cmd = $list[$depth - 1];
+					print "\n";
+					print $cmd;
+					print "\n";
+					eval $cmd;
+				}
+			}
+			print "b2RemoveSelected.........................................................................................................procedure end\n";
+		}
+		//-/
+		
+	
+		//- b2UpdCurrProj
+		//
+		global proc b2UpdCurrProj()
+		{
+			print "b2UpdCurrProj..............................................................................................................procedure start\n";
+			string $selProj = `optionMenu -q -value projList`;
+			optionVar -sv "currProj" $selProj;
+			b2UpdateUI;
+			print "b2UpdCurrProj................................................................................................................procedure end\n";
+		}
+	//-/
+
+	
+		//- b2RemoveAssetFromSceneUI
+		//
+		global proc b2RemoveAssetFromSceneUI()
+		{
+			print "b2RemoveAssetFromSceneUI...........................................................................................procedure start\n";
+			if( `window -exists "b2SubWin1"` )
+			{
+				deleteUI "b2SubWin1";
+			}
+			
+			string $window = `window -title "b2RemoveAssetFromScene" -sizeable false b2SubWin1`;
+				columnLayout -columnWidth 200 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 3;
+					text -label "Loaded Assets" -font "boldLabelFont";
+					textScrollList -height 300 -allowMultiSelection true existingAssetList;
+					button -label "Remove" -bgc 1 0.5 0.5 -command "b2RemoveAssetFromSceneCallback";
+					button -label "Refresh" -command "b2RemoveAssetFromSceneUI";
+			
+			string $refNodeLst[] = `ls -type "reference"`;
+			string $astLst[];
+			if( size($refNodeLst) )
+			{
+				for( $eachRef in $refNodeLst )
+				{
+					string $sharedRefNodeMatch = `match "sharedReferenceNode" $eachRef`;
+					if( $sharedRefNodeMatch == "" )
+						{
+						string $filePath = `referenceQuery -filename $eachRef`;
+						string $astDir = `optionVar -q "assetDir"`;
+						string $shtDir = `optionVar -q "shotDir"`;
+						string $astMatch = `match $astDir $filePath`;
+						string $shtMatch = `match $shtDir $filePath`;
+						if( size($astMatch) || size($shtMatch) )
+						{
+							string $astNs = `referenceQuery -namespace $eachRef`;
+							$astNs = `substring $astNs 2 (size($astNs))`;
+							$astLst[size($astLst)] = $astNs;
+						}
+					}
+				}
+			}
+			if( size($astLst) )
+			{
+				$astLst = `sort $astLst`;
+				for( $eachAst in $astLst )
+				{
+					textScrollList -edit -append $eachAst existingAssetList;
+				}
+			}
+			showWindow $window;
+			print "b2RemoveAssetFromSceneUI.............................................................................................procedure end\n";
+		}
+		//-/
+		
+		
+		//- b2RemoveAssetFromSceneCallback
+		//
+		global proc b2RemoveAssetFromSceneCallback()
+		{
+			print "b2RemoveAssetFromSceneCallback.....................................................................................procedure start\n";
+			string $selAst[] = `textScrollList -q -selectItem existingAssetList`;
+			print "$selAst = \n";
+			print $selAst;
+			print "\n";
+			if( size($selAst) )
+			{
+				for( $eachAst in $selAst )
+				{
+					string $refNode = $eachAst + "RN";
+					string $abcNs = $eachAst + "_abc";
+					if( `namespace -exists $abcNs` )
+					{
+						namespace -deleteNamespaceContent -removeNamespace $abcNs;
+					}
+					file -force -removeReference -referenceNode $refNode;
+				}
+
+			}
+			b2RemoveAssetFromSceneUI;			
+			print "b2RemoveAssetFromSceneCallback.......................................................................................procedure end\n";
+		}
+		
+		//-/
+		
+		
+	//-/
+	
+	
+	//- 어셋 탭 버튼 기능
+	
+		//- b2NewAssetTypeWin //-------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 어셋 타입 생성 윈도우
+		// 작동절차	-
+		// 입력		-
+		// 출력		-
+		//
+		global proc b2NewAssetTypeWin()
+		{
+			print "b2NewAssetTypeWin......................................................................................................procedure start\n";
+			string $assetType;
+			string $choice = `promptDialog
+				-title "New Asset Type"
+				-message "Asset Type Name\n공백문자나 한글, 특수문자는 쓰면 안되요!\n"
+				-button "Create"
+				-button "Cancel"
+				-defaultButton "Create"
+				-cancelButton "Cancel"
+				-sf true
+				-dismissString "Cancel"`;
+			if ($choice == "Create")
+			{
+				$assetType = strip(`promptDialog -q -tx`);
+				if( `b2CheckValueFormat "string" $assetType` )
+				{
+					string $result = b2CreateNewItem(2, $assetType, "", "", 0);
+					if (size($result))
+					{
+						// b2UpdateUI;
+						b2UpdAssetTypeList $assetType;
+					}
+				}
+				else
+				{
+					confirmDialog -title "Error!" -message "입력하신 문자열에 사용할 수 없는 문자가 포함되어 있습니다.";
+					b2NewAssetTypeWin;
+				}
+			}
+			print "b2NewAssetTypeWin........................................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2NewAssetWin //-----------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 새 어셋 생성 윈도우
+		// 작동절차	-
+		// 입력		-
+		// 출력		-
+		//
+		global proc b2NewAssetWin()
+		{
+			print "b2NewAssetWin..........................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 2 1`;
+			if ($selItem[0] == "")
+			{
+				confirmDialog -title "Warning!" -message "어셋 타입을 선택하세요";
+			}
+			else
+			{
+				string $assetName;
+				string $choice = `promptDialog
+					-title "New Asset"
+					-message "Asset Name\n공백문자나 한글, 특수문자는 쓰면 안되요!\n"
+					-button "Create"
+					-button "Cancel"
+					-defaultButton "Create"
+					-cancelButton "Cancel"
+					-sf true
+					-dismissString "Cancel"`;
+				if ($choice == "Create")
+				{
+					$assetName = strip(`promptDialog -q -tx`);
+					if( `b2CheckValueFormat "string" $assetName` )
+					{
+						string $assetType[] = `b2GetCurrentlySelectedItem 2 1`;
+						string $result = b2CreateNewItem(2, $assetType[0], $assetName, "", 0);
+						if (size($result))
+						{
+							b2UpdAssetNameList $assetName;
+						}
+					}
+					else
+					{
+						confirmDialog -title "Error!" -message "입력하신 문자열에 사용할 수 없는 문자가 포함되어 있습니다.";
+						b2NewAssetWin;
+					}
+				}
+			}
+			print "b2NewAssetWin............................................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2NewAssetCompoWin //------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 새 어셋 컴포넌트 생성 윈도우
+		//
+		global proc b2NewAssetCompoWin()
+		{
+			print "b2NewAssetCompoWin.....................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 2 2`;
+			if ($selItem[1] == "")
+			{
+				confirmDialog -title "Warning!" -message "어셋을 선택하세요";
+			}
+			else
+			{
+				if (`window -exists newAssetCompoWin`)
+				{
+					deleteUI newAssetCompoWin;
+				}
+				string $presets[] = `b2AssetCompoPreset`;
+				int $numberOfPreset = `size($presets)`;	
+				string $newAssetCompoWin = `window -title "New Asset Component" -sizeable false newAssetCompoWin`;
+					string $baseLayout = `columnLayout -columnAttach both 10 -columnWidth 320 -columnAlign left -rowSpacing 5 newAssetCompoWinLayout`;
+						separator;
+						rowLayout -numberOfColumns 2 -columnWidth2 130 165 -columnAttach2 right right;
+							text -font boldLabelFont -label "Select Preset :";
+							optionMenu 	-width 160 -changeCommand "b2UpdAssetCompoNameField" assetCompoPresetList;
+								menuItem -label "-Select ComponentName-";
+							for ($item in $presets)
+							{
+								menuItem -label $item;
+							}
+					setParent newAssetCompoWinLayout;
+						separator;
+						rowLayout -numberOfColumns 2 -columnWidth2 130 165 -columnAttach2 right right;
+						text -font boldLabelFont -label "Custom Component :";
+						textField -width 160 -editable false -text "" assetCompoCustomName;
+					setParent newAssetCompoWinLayout;
+						separator;
+						rowLayout -numberOfColumns 2 -columnWidth2 190 105 -columnAttach2 right right;
+							button -label "OK" -command "b2CreateNewAssetCompo" -width 100;
+							button -label "Cancel" -width 100 -command "deleteUI newAssetCompoWin";
+							
+				
+				showWindow $newAssetCompoWin;
+			}
+			print "b2NewAssetCompoWin.......................................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2UpdAssetcompoNameField //------------------------------------------------------------------------------------------------------------//
+		// 어셋 컴포넌트 생성 윈도우의 텍스트 필드와 옵션메뉴의 연동관계 업데이트
+		global proc b2UpdAssetCompoNameField()
+		{
+			print "b2UpdAssetCompoNameField...............................................................................................procedure start\n";
+			string $currentSelection = `optionMenu -q -v assetCompoPresetList`;
+			if ($currentSelection == "Custom Component")
+			{
+				textField -edit -editable true assetCompoCustomName;
+			}
+			else
+			{
+				textField -edit -editable false assetCompoCustomName;
+			}
+			print "b2UpdAssetCompNameField..................................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2CreateNewAssetCompo //---------------------------------------------------------------------------------------------------------------//
+		// 새 어셋 컴포넌트 생성
+		global proc b2CreateNewAssetCompo()
+		{
+			print "b2CreateNewAssetCompo..................................................................................................procedure start\n";
+			string $selectedItem[] = `b2GetCurrentlySelectedItem 2 2`;
+			string $compoName = "";
+			string $menuSelection = `optionMenu -q -v assetCompoPresetList`;
+			if ($menuSelection == "-Select ComponentName-")
+			{
+				confirmDialog -title "Warning" -message "프리셋 리스트에서 컴포넌트를 선택하거나 직접 입력하세요" -button "OK";
+			}
+			else if ($menuSelection == "Custom Component")
+			{
+				$compoName = `textField -q -tx assetCompoCustomName`;
+			}
+			else
+			{
+				$compoName = $menuSelection;
+			}
+			if( `b2CheckValueFormat "string" $compoName` )
+			{
+				b2CreateNewItem(2, $selectedItem[0], $selectedItem[1], $compoName, 0);
+				deleteUI newAssetCompoWin;
+				b2UpdAssetCompoList $compoName;
+			}
+			else
+			{
+				confirmDialog -title "Error!" -message "입력하신 문자열에 사용할 수 없는 문자가 포함되어 있습니다.";
+			}
+			print "b2CreateNewAssetCompo....................................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2GetAssetCallback //------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 어셋 import/reference 혹은 download 실행 procedure와 UI선택사항을 연결.
+		//			- 이후 현재 열려있는 작업이 ani인지 efx인지 등에 따라 다른 procedure로 연결되도록 개선할것.
+		//
+		global proc b2GetAssetCallback( string $key )
+		{
+			print "b2GetAssetCallback.....................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+			string $component = $selItem[2];
+			string $selVerStr = `textField -q -text selectedAssetVersionField`;
+			string $srcPath = `textFieldButtonGrp -q -text astFileLocField`;
+			string $cmd;
+			
+			switch( $key )
+			{
+				case "get":
+					$cmd = "b2GetAssetUI";
+					break;
+				case  "down":
+					$cmd = "b2DownloadAssetUI";
+					break;
+			}
+			
+			if ($selVerStr == "N/A" || $selVerStr == "")
+			{
+				confirmDialog -title "Warning" -message "불러들일 어셋 버전을 선택해주세요";
+			}
+			else
+			{
+				if( $key == "get" )
+				{
+					eval $cmd;
+				}
+				else
+				{
+					eval($cmd + " \"" + $srcPath + "\"");
+				}
+			}
+			print "b2GetAssetCallback.......................................................................................................procedure end\n";
+		}
+		//-/
+	
+	
+		//- b2UpdSceneAssetUI //-------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 씬에 로드된 어셋 버전과 라이브러리의 최신 버전을 비교하여 업데이트가 필요한 어셋을 표시하고 선택한 어셋을 업데이트 하도록 해줌.
+		//
+		global proc b2UpdSceneAssetUI()
+		{
+			print "b2UpdSceneAssetUI......................................................................................................procedure start\n";
+			if( `window -exists "b2SubWin1"` )
+			{
+				deleteUI "b2SubWin1";
+			}
+			string $window = `window -title "b2UpdateSceneAsset" -sizeable false b2SubWin1`;
+					string $rootLayout = `columnLayout -columnWidth 510 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+						separator;
+						text -label ( "씬에 로딩된 어셋의 버전과 라이브러리에 저장된 최종 릴리즈 버전을 비교하여\n업데이트가 필요한 어셋을 표시합니다.\n"
+							+ "오렌지 색으로 표시된 어셋이 업데이트가 필요한 어셋이며, 체크박스가 활성화 되어 표시됩니다.\n"
+							+ "체크박스를 체크하고 \'Update To Latest Version!`' 버튼을 누르면 체크된 어셋을 업데이트 합니다." );
+						text -label ( "어셋에 포함된 구성요소의 이름이나 구조가 바뀌었다면 현재 적용되어 있는 작업 내용이 소실 될 수 있습니다.\n"
+							+ "그러므로 업데이트 전에 씬 파일을 백업 한 후 업데이트를 진행하기를 권장합니다." ) -bgc 1 0 0;
+						separator;
+						rowLayout -numberOfColumns 4
+							-columnWidth 1 200 -columnWidth 2 100 -columnWidth 3 100 -columnWidth 4 100 
+							-columnAttach 1 "left" 0 -columnAttach 2 "left" 0 -columnAttach 3 "left" 0 -columnAttach 4 "both" 0
+							-columnAlign 1 "left" -columnAlign 2 "left";
+							text -label "Asset(Namespace)" -font "boldLabelFont";
+							text -label "Current Version" -font "boldLabelFont";
+							text -label "Latest Version" -font "boldLabelFont";
+							text -label "Status" -font "boldLabelFont";
+					setParent $rootLayout;
+						separator;
+						$listLayout = `columnLayout -columnWidth 510 -columnAttach "both" 0 -columnAlign "left" -rowSpacing 3`;
+					setParent $rootLayout;
+						separator;
+						rowLayout -numberOfColumns 2 -columnWidth 1 347 -columnWidth 2 150 -columnAttach 1 "right" 0 -columnAttach 2 "left" 0;
+						button -label "Update Selected Asset!" -width 150 -command "b2UpdSceneAsset";
+						button -label "Close" -width 150 -command "deleteUI b2SubWin1";
+						
+			string $refLst[] = `ls -type "reference"`;
+			showWindow $window;
+			
+			// 씬 어셋 리스트 작성 및 UI에 표시
+			string $scName = `file -q -sceneName`;
+			string $refLst[] = `file -q -r $scName`;
+			int $numRefLst = size( $refLst );
+			print "$refLst =\n";
+			print $refLst;
+			print "\n\n";
+			for( $eachFile in $refLst )
+			{
+				print ($eachFile + "......\n");
+				string $basename = `basenameEx $eachFile`;
+				string $nameSplit[] = `stringToStringArray $basename "_"`;
+				print "$nameSplit =\n";
+				print $nameSplit;
+				print "\n\n";
+				if( size($nameSplit) <= 5 ) // 레퍼런스 파일이 어셋인지 이름 구성으로 확인.
+				{
+					string $astType = $nameSplit[0];
+					string $astName = $nameSplit[1];
+					string $astCompo = $nameSplit[2];
+					string $astNamespace = `referenceQuery -namespace $eachFile`;
+						$astNamespace = `substituteAllString $astNamespace ":" ""`;	
+					string $b2VerAttr = "b2" + `capitalizeString $astCompo` + "Ver";
+					print "$b2VerAttr =\n";
+					print $b2VerAttr;
+					print "\n\n";
+					string $astRoot[] = `ls ($astNamespace + ":root")`;
+					
+					// 어셋 루트에 기록된 버전 추출
+					string $currVerStr = `getAttr ($astRoot[0] + "." + $b2VerAttr)`;
+					int $currVerInt[] = `b2GetVersionFromFile $currVerStr "r"`;
+					string $latestVerFile = `b2GetFileName 2 $astType $astName $astCompo 0 "release" 0`;
+					string $latestVerStr = `match "_r[0-9]{3}.ma" $latestVerFile`;
+						$latestVerStr = `substituteAllString $latestVerStr "_" ""`;
+						$latestVerStr = `substituteAllString $latestVerStr ".ma" ""`;
+					int $latestVerInt[] = `b2GetVersionFromFile $latestVerStr "r"`;
+					
+					//ui 업데이트를 위한 변수 설정
+					float $bgc[3];
+					int $toggle;
+					string $label;
+					string $font;
+						//최신 릴리즈가 존재하거나 현재 develop을 사용하고 있는데 release가 존재하는 경우 업데이트가 필요한 것으로 간주.
+					if( $latestVerInt[0] > $currVerInt[0] || ($latestVerInt[0] != 0 && `startsWith $currVerStr "v"` == 1) ) 
+					{
+						$bgc = {1.0, 0.7, 0.0};
+						$label = "Need Update!";
+						$font = "boldLabelFont";
+						$toggle = 1;
+					}
+					else 
+					{
+						$bgc = { 0.267, 0.267, 0.267};
+						$label = "Latest Version";
+						$font = "plainLabelFont";
+						$toggle = 0;
+					}
+					string $layoutName = "astLine_" + $astNamespace;
+					string $chkBoxName = "astChkBox_" + $astNamespace;
+					
+					//ui에 내용 추가
+					rowLayout -numberOfColumns 4
+						-columnWidth 1 195 -columnWidth 2 100 -columnWidth 3 100 -columnWidth 4 100 
+						-columnAttach 1 "left" 5 -columnAttach 2 "both" 0 -columnAttach 3 "both" 0 -columnAttach 4 "both" 0 -bgc $bgc[0] $bgc[1] $bgc[2] 
+						-columnAlign 1 "left" -columnAlign 2 "center" -columnAlign 3 "center" -columnAlign 4 "center" -parent $listLayout $layoutName;
+						checkBox -label $astNamespace -enable $toggle $chkBoxName;
+						text -label $currVerStr;
+						text -label $latestVerStr;
+						text -label $label -font $font;
+					setParent $rootLayout;
+				}
+			}
+
+			print "b2UpdSceneAssetUI........................................................................................................procedure end\n";
+		}
+		//-/
+	
+	
+		//- b2SaveNewAssetCallback //--------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2SaveNewAssetCallback( string $key )
+		{
+			print "b2SaveNewAssetCallback.................................................................................................procedure start\n";
+			// b2autoSelectDir;
+			string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+			string $component = $selItem[2];
+			if ($selItem[2] == "")
+			{
+				confirmDialog -title "Warning" -message "어셋 컴포넌트를 선택하세요";
+			}
+			else
+			{
+				if ($component == "mdl" || $component == "rig" || $component == "faceRig" || $component == "lod" || $component == "lit" || $component == "lookDev")
+				{
+					if ($key == "dev")
+					{
+						b2SaveAssetDevelopUI;
+					}
+					else if ($key == "rel")
+					{
+						b2SaveAssetReleaseUI;
+					}
+				}
+				else
+				{
+					confirmDialog -title "Info" -message "해당 컴포넌트를 위한 모듈이 없습니다.\n파이프라인 관리자에게 문의하세요";
+				}
+			}
+			print "b2SaveNewAssetCallback...................................................................................................procedure end\n";
+		}
+		//-/
+		
+	//-/
+	
+	
+	//- 샷 탭 기능
+	
+		//- b2NewSequenceWin //--------------------------------------------------------------------------------------------------------------------//
+		// 새 시퀀스 생성 윈도우
+		global proc b2NewSequenceWin()
+		{
+			print "b2NewSequenceWin.......................................................................................................procedure start\n";
+			string $sequenceName;
+			string $choice = `promptDialog
+				-title "New sequence name"
+				-message "New sequence name\n공백문자나 한글, 특수문자 및 언더스코어( _ )는 쓰면 안되요!\n"
+				-button "Create"
+				-button "Cancel"
+				-defaultButton "Cancel"
+				-cancelButton "Cancel"
+				-sf false
+				-dismissString "Cancel"`;
+			if ($choice == "Create")
+			{
+				$sequenceName = strip(`promptDialog -q -tx`);
+				if( `b2CheckValueFormat "string" $sequenceName` )
+				{
+					string $result = b2CreateNewShotItem($sequenceName, "", "", "");
+					if (size($result))
+					{
+						b2UpdateUI;
+					}
+				}
+				else
+				{
+					confirmDialog -title "Error!" -message "입력하신 이름에 사용할 수 없는 문자가 포함되어 있습니다.";
+					b2NewSequenceWin;
+				}
+			}
+			print "b2NewSequenceWin.........................................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2NewShotWin //------------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 새 샷 생성 윈도우
+		// 작동절차	- project_def.xml파일에서 읽어온 정보를 UI에 표시하고 사용자 입력을 받아 b2CreateNewShot 실행
+		// 입력		-
+		// 출력		-
+		//
+		global proc b2NewShotWin()
+		{
+			print "b2NewShotWin...........................................................................................................procedure start\n";
+			string $shotName;
+			string $selItem[] = b2GetCurrentlySelectedItem (3, 1);
+			string $cmd = "b2CreateNewShot " + $selItem[0];
+			if (!size($selItem[0]))
+			{
+				confirmDialog -title "Warning" -message "시퀀스를 선택하세요";
+			}
+			else
+			{
+				if (`window -exists b2SubWin1`)
+				{
+					deleteUI b2SubWin1;
+				}
+				string $window = `window -title "b2CreateNewShot" -sizeable false b2SubWin1`;
+				string $rootLayout = `columnLayout -columnWidth 360 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+					separator;
+					text "새로 생성할 샷의 이름을 입력하세요";
+					text "프로젝트 설정으로부터 샷에 필요한 기본 정보를 가져옵니다.";
+					text "변경이 필요하다면 아래 Shot Definition Info 항목에서 수정하세요.";
+					text "수정된 내용은 이 샷에만 해당되고 다른 샷에는 적용되지 않습니다.";
+					separator;
+					text -label "";
+					text -label "Shot Definition Info" -font "boldLabelFont";
+					separator;
+						rowColumnLayout -numberOfColumns 2
+							-columnWidth 1 150 -columnWidth 2 200
+							-columnAttach 1 "right" 5 -columnAttach 2 "left" 5 -rowSpacing 1 5;
+							text -label "Shot Name :" -font "boldLabelFont";
+							textField -text "" shtNameField;
+							text -label "Image Width :" -font "boldLabelFont";
+							textField -text "" imgWidthField;
+							text -label "Image Height :" -font "boldLabelFont";
+							textField -text "" imgHeightField;
+							text -label "Start Frame :" -font "boldLabelFont";
+							textField -text "" stFrameField;
+							text -label "End Frame :" -font "boldLabelFont";
+							textField -text "" edFrameField;
+							text -label "Frame Rate :" -font "boldLabelFont";
+							// textField -text "" fpsField;
+							optionMenu fpsMenu;
+								menuItem -label "Select Frame Rate   ";
+								menuItem -label "game";
+								menuItem -label "film";
+								menuItem -label "ntsc";
+							text -label "Pixel Ratio :" -font "boldLabelFont";
+							textField -text "" pxRatioField;
+					setParent ..;
+					separator;
+					rowLayout -numberOfColumns 2 -columnWidth2 226 122 -columnAttach2 "right" "right";
+						button -label "Save" -width 120 -command $cmd;
+						button -label "Cancel" -width 120 -command "deleteUI b2SubWin1";
+				showWindow $window;
+				
+				string $projPath = `textFieldButtonGrp -q -text currentProjPath`;
+				string $projName = `optionMenu -q -value projList`;
+				string $defFile = $projPath + $projName + "_def.xml";
+				string $projInfoArray[] = `b2GetProjInfo $defFile`;
+				switch( $projInfoArray[4] )
+				{
+					case "15":
+						$projInfoArray[4] = "game";
+						break;
+					case "24":
+						$projInfoArray[4] = "film";
+						break;
+					case "30":
+						$projInfoArray[4] = "ntsc";
+						break;
+				}
+				textField -edit -text $projInfoArray[2] imgWidthField;
+				textField -edit -text $projInfoArray[3] imgHeightField;
+				textField -edit -text "101" stFrameField;
+				optionMenu -edit -value $projInfoArray[4] fpsMenu;
+				textField -edit -text $projInfoArray[5] pxRatioField;
+			}
+			print "b2NewShotWin.............................................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2CreateNewShot //---------------------------------------------------------------------------------------------------------------------//
+		// 기능		- b2NewShotWin에서 받아온 값으로 b2CreateNewShotItem을 실행하여 샷 디렉토리와 shot_def.xml을 생성.
+		//			- b2SaveShotDefInfo를 실행하여 shot_def.xml에 UI에서 받아온 값을 기록
+		//			- b2NewShotWin UI제거.
+		//			- 전체 UI 갱신
+		//
+		global proc b2CreateNewShot( string $seq )
+		{
+			print "b2CreateNewShot........................................................................................................procedure start\n";
+			string $shtName = `textField -q -text shtNameField`;
+			string $imgWidth = `textField -q -text imgWidthField`;
+			string $imgHeight = `textField -q -text imgHeightField`;
+			string $stFrame = `textField -q -text stFrameField`;
+			string $edFrame = `textField -q -text edFrameField`;
+			string $fps = `optionMenu -q -value fpsMenu`;
+			string $pxRatio = `textField -q -text pxRatioField`;
+			string $shtInfoArray[] = { $shtName, $imgWidth, $imgHeight, $stFrame, $edFrame, $fps, $pxRatio };
+			
+			if ( $shtName == "" )
+			{
+				confirmDialog -title "Error" -message "샷 이름을 입력하세요";
+			}
+			else if ( !`b2CheckValueFormat "string" $shtName` )
+			{
+				confirmDialog -title "Error!" -message "입력하신 이름에 사용할 수 없는 문자가 포함되어 있습니다.";
+			}
+			else if ($imgWidth == "" || $imgHeight == "" || !`b2CheckValueFormat "int" $imgWidth` || !`b2CheckValueFormat "int" $imgHeight`)
+			{
+				confirmDialog -title "Error" -message "렌더링 사이즈 정보를 확인하세요";
+			}
+			else if ($stFrame == "" || $edFrame == "" || !`b2CheckValueFormat "int" $stFrame` || !`b2CheckValueFormat "int" $edFrame`)
+			{
+				confirmDialog -title "Error" -message "프레임 정보를 확인하세요";
+			}
+			else if ($fps == "Select Frame Rate" || !`b2CheckValueFormat "string" $fps`)
+			{
+				confirmDialog -title "Error" -message "fps 정보를 확인하세요";
+			}
+			else if ($pxRatio == "" || !`b2CheckValueFormat "float" $pxRatio`)
+			{
+				confirmDialog -title "Error" -message "pixel ratio 정보를 확인하세요";
+			}
+			else
+			{
+				string $defFile = `b2GetFileName2 $seq $shtName "" "" 0 "folder" 0`;
+					$defFile = $defFile + $shtName + "_def.xml";
+				string $result1 = b2CreateNewShotItem( $seq, $shtName, "", "");
+				if (size($result1))
+				{
+					b2SaveShotDefInfo $shtInfoArray $defFile;
+					b2UpdShotList $shtName;
+					deleteUI b2SubWin1;
+				}
+				else
+				{
+					confirmDialog -title "Error!" -message "샷 디렉토리를 만들지 못했습니다";
+				}
+			}
+			print "b2CreateNewShot..........................................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2NewShotCompoWin //-------------------------------------------------------------------------------------------------------------------//
+		// 새 샷 컴포넌트 생성 윈도우
+		global proc b2NewShotCompoWin()
+		{
+			print "b2NewShotCompoWin......................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 2`;
+			if ($selItem[1] == "")
+			{
+				confirmDialog -title "Error!" -message "샷을 선택하세요";//
+			}
+			else
+			{
+				if (`window -exists b2SubWin1`)
+				{
+					deleteUI b2SubWin1;
+				}
+				string $presets[] = `b2ShotCompoPreset`;
+				int $numberOfPreset = `size($presets)`;	
+				string $window = `window -title "New Asset Component" -sizeable false b2SubWin1`;
+					string $baseLayout = `columnLayout -columnAttach both 10 -columnWidth 320 -columnAlign left -rowSpacing 5 newShotCompoWinLayout`;
+						separator;
+						rowLayout -numberOfColumns 2 -columnWidth2 130 165 -columnAttach2 right right;
+							text -font boldLabelFont -label "Select Preset :";
+							optionMenu 	-width 160 -changeCommand "b2UpdShotCompoNameField" shotCompoPresetList;
+								menuItem -label "-Select ComponentName-";
+							for ($item in $presets)
+							{
+								menuItem -label $item;
+							}
+					setParent newShotCompoWinLayout;
+						separator;
+						rowLayout -numberOfColumns 2 -columnWidth2 130 165 -columnAttach2 right right;
+						text -font boldLabelFont -label "Custom Component :";
+						textField -width 160 -editable false -text "" shotCompoCustomName;
+					setParent newShotCompoWinLayout;
+						separator;
+						rowLayout -numberOfColumns 2 -columnWidth2 190 105 -columnAttach2 right right;
+							button -label "OK" -command "b2CreateNewShotCompoCallback" -width 100;
+							button -label "Cancel" -width 100 -command "deleteUI b2SubWin1";
+							
+				
+				showWindow $window;
+			}
+			print "b2NewShotCompoWin........................................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2UpdShotCompoNameField //-------------------------------------------------------------------------------------------------------------//
+		// 샷 컴포넌트 생성 윈도우의 텍스트 필드와 옵션 메뉴의 연동관계 업데이트
+		global proc b2UpdShotCompoNameField()
+		{
+			print "b2UpdShotCompoNameField................................................................................................procedure start\n";
+			string $currentSelection = `optionMenu -q -v shotCompoPresetList`;
+			if ($currentSelection == "Custom Component")
+			{
+				textField -edit -editable true shotCompoCustomName;
+			}
+			else
+			{
+				textField -edit -editable false shotCompoCustomName;
+			}
+			print "b2UpdShotCompoNameField..................................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2CreateNewShotCompoCallback //--------------------------------------------------------------------------------------------------------//
+		// 기능		- b2CreateNewShotCompoWin에서 받아온 값으로 새 샷 컴포넌트 생성(추후 컴포넌트 타입에 따라 다른 precedure로 연결되도록 개선할것)
+		// 작동절차	- b2CreateNewShotCompoWin의 UI에서 필요한 값을 query.
+		//			- 받아온 컴포넌트 이름으로 b2CreateNewShotItem을 실행.
+		//			- master 레이어 생성
+		//			- UI 업데이트
+		//
+		// 입력		- 없음
+		//
+		global proc b2CreateNewShotCompoCallback()
+		{
+			print "b2CreateNewShotCompoCallback...........................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 2`;
+			string $compoName = "";
+			string $menuSelection = `optionMenu -q -v shotCompoPresetList`;
+			if ($menuSelection == "-Select ComponentName-")
+			{
+				confirmDialog -title "Warning" -message "프리셋 리스트에서 컴포넌트를 선택하거나 직접 입력하세요" -button "OK";
+			}
+			else if ($menuSelection == "Custom Component")
+			{
+				$compoName = `textField -q -tx shotCompoCustomName`;
+			}
+			else
+			{
+				$compoName = $menuSelection;
+			}
+			if( `b2CheckValueFormat "string" $compoName` )
+			{
+				b2CreateNewShotItem( $selItem[0], $selItem[1], $compoName, "" );
+				b2CreateNewShotItem( $selItem[0], $selItem[1], $compoName, "master" );
+				deleteUI b2SubWin1;
+				b2UpdShotCompoList $compoName;
+			}
+			else
+			{
+				confirmDialog -title "Error!" -message "입력하신 문자열에 사용할 수 없는 문자가 포함되어 있습니다.";
+			}
+			print "b2CreateNewShotCompoCallback.............................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2CreateNewShotCompoLayerWin //--------------------------------------------------------------------------------------------------------//
+		// 새 샷 컴포넌트 레이어 생성
+		global proc b2CreateNewShotCompoLayerWin()
+		{
+			print "b2CreateNewShotCompoLayerWin...........................................................................................procedure start\n";
+			string $layerName;
+			string $selectedItem[] = b2GetCurrentlySelectedItem (3, 3);
+			string $choice = `promptDialog
+				-title "New shot component layer name"
+				-message "New shot component layer name\n공백문자나 한글, 특수문자는 쓰면 안되요!"
+				-button "Create"
+				-button "Cancel"
+				-defaultButton "Cancel"
+				-cancelButton "Cancel"
+				-sf false
+				-dismissString "Cancel"`;
+			if ($choice == "Create")
+			{
+				$layerName = strip(`promptDialog -q -tx`);
+				if( `b2CheckValueFormat "string" $layerName` )
+				{
+					string $result1 = b2CreateNewShotItem($selectedItem[0], $selectedItem[1], $selectedItem[2], $layerName);
+					if (size($result1))
+					{
+						b2UpdShotCompoLayerList $layerName;
+					}
+				}
+				else
+				{
+					confirmDialog -title "Error!" -message "입력하신 문자열에 사용할 수 없는 문자가 포함되어 있습니다!";
+				}
+			}
+			print "b2CreateNewShotCompoWin..................................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2ShotDefEditor //---------------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2ShotDefEditorUI()
+		{
+			print "b2ShotDefEditor........................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+			string $shotName = $selItem[0] + "_" + $selItem[1];
+			string $shotDir = `b2GetFileName2 $selItem[0] $selItem[1] "" "" 0 folder 0`;
+			string $xmlFile[] = `getFileList -folder $shotDir -filespec "*.xml"`;
+			string $defFile = $shotDir + $xmlFile[0];
+			string $shotInfoValue[] = `b2GetShotDefInfo $defFile`;
+			switch ($shotInfoValue[5])
+			{
+				case "15":
+					$shotInfoValue[5] = "game";
+					break;
+				case "24":
+					$shotInfoValue[5] = "film";
+					break;
+				case "30":
+					$shotInfoValue[5] = "ntsc";
+					break;
+			}
+			string $saveCmd = "b2EditShotDefInfo \"" + $defFile + "\"";
+			if (!size($selItem[1]))
+			{
+				confirmDialog -title "Warning" -message "설정을 변경하려는 샷을 선택하세요";
+			}
+			else if( size($selItem[2]) )
+			{
+				confirmDialog -title "Warning" -message "샷 설정 변경은 컴포넌트나 레이어를 선택한 상태에서는 실행할 수 없습니다.";
+			}
+			else
+			{
+				if (`window -exists b2SubWin1`)
+				{
+					deleteUI b2SubWin1;
+				}
+				string $window = `window -title "b2ShotDefinitionEditor" -sizeable false b2SubWin1`;
+				string $rootLayout = `columnLayout -columnWidth 360  -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+					separator -width 250;
+					text -label "변경하는 샷 설정은 이미 만들어진 씬 파일에는 적용되지 않습니다.";
+					separator -width 250;
+					text "";
+					text -label "Shot Definition Info" -font "boldLabelFont";
+					separator -width 250;
+						rowColumnLayout -numberOfColumns 2
+							-columnWidth 1 150 -columnWidth 2 200
+							-columnAttach 1 "right" 5 -columnAttach 2 "left" 10 -rowSpacing 1 5;
+							text -label "Shot Name :" -font "boldLabelFont";
+							textField -text $shotName -editable false shtNameField;
+							text -label "Image Width :" -font "boldLabelFont";
+							textField -text "" imgWidthField;
+							text -label "Image Height :" -font "boldLabelFont";
+							textField -text "" imgHeightField;
+							text -label "Start Frame :" -font "boldLabelFont";
+							textField -text "" stFrameField;
+							text -label "End Frame :" -font "boldLabelFont";
+							textField -text "" edFrameField;
+							text -label "Frame Rate :" -font "boldLabelFont";
+							optionMenu fpsMenu;
+								menuItem -label "Select Frame Rate   ";
+								menuItem -label "game";
+								menuItem -label "film";
+								menuItem -label "ntsc";
+							text -label "Pixel Ratio :" -font "boldLabelFont";
+							textField -text "" pxRatioField;
+					setParent ..;
+					separator -width 250;
+					rowLayout -numberOfColumns 2 -columnWidth2 226 122 -columnAttach2 "right" "right";
+						button -label "Save" -width 120 -command $saveCmd;
+						button -label "Cancel" -width 120 -command "deleteUI b2SubWin1";
+				showWindow $window;
+				
+				textField -edit -text $shotInfoValue[1] imgWidthField;
+				textField -edit -text $shotInfoValue[2] imgHeightField;
+				textField -edit -text $shotInfoValue[3] stFrameField;
+				textField -edit -text $shotInfoValue[4] edFrameField;
+				optionMenu -edit -value $shotInfoValue[5] fpsMenu;
+				textField -edit -text $shotInfoValue[6] pxRatioField;
+			}
+			print "b2ShotDefEditor..........................................................................................................procedure end\n";
+		}
+		//-/
+		
+		
+		//- b2EditShotDefInfo //-------------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2EditShotDefInfo( string $defFile )
+		{
+			print "b2EditShotDefInfo......................................................................................................procedure start\n";
+			string $shtInfoArray[];
+			$shtInfoArray[0] = `textField -q -text shtNameField`;
+			$shtInfoArray[1] = `textField -q -text imgWidthField`;
+			$shtInfoArray[2] = `textField -q -text imgHeightField`;
+			$shtInfoArray[3] = `textField -q -text stFrameField`;
+			$shtInfoArray[4] = `textField -q -text edFrameField`;
+			$shtInfoArray[5] = `optionMenu -q -value fpsMenu`;
+			$shtInfoArray[6] = `textField -q -text pxRatioField`;
+			b2SaveShotDefInfo $shtInfoArray $defFile;		
+			
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 2`;
+			b2UpdShotList $selItem[1];
+			deleteUI b2SubWin1;
+			print "b2EditShotDefInfo........................................................................................................procedure end\n";
+		}	
+		//-/
+
+		
+		//- b2PlayblastCallback //-----------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2PlayblastCallback( string $tab, string $key )
+		{
+			print "b2PlayblastCallback................................................................................................procedure start\n";
+			int $stFrame;
+			int $edFrame;
+			int $length;
+			string $pathField;
+			string $pathDir;
+			string $movFiles[];
+			
+			switch( $tab )
+			{
+				case "ast":
+					$pathField = "astFileLocField";
+					break;
+				case "sht":
+					$pathField = "shtFileLocField";
+					break;
+			}
+			if( $key == "single" )
+			{
+				$pathDir = `textFieldButtonGrp -q -text $pathField`;
+				$pathDir = `b2AddSlash $pathDir`;
+				$movFiles = `getFileList -folder $pathDir -filespec "*.mov"`;
+				$movFiles = `sort $movFiles`;
+				for( $i = 0; $i < size($movFiles); $i++ )
+				{
+					$movFiles[$i] = $pathDir + $movFiles[$i];
+				}	
+				b2Playblast "sht" "single" $movFiles;
+			}
+			else if( $key == "seq" )
+			{
+				$movFiles = `b2GetSeqMov`;
+				b2Playblast "sht" "seq" $movFiles;
+			}
+			print "b2PlayblastCallback..................................................................................................procedure end\n";
+		}
+		//-/
+		
+		
+		//- b2GetSeqMov //-------------------------------------------------------------------------------------------------------------------------//
+		//
+		global proc string[] b2GetSeqMov()
+		{
+			print "b2GetSeqMov........................................................................................................procedure start\n";
+			string $allMovLst[];
+			int $length;
+			string $selSeq[] = `b2GetCurrentlySelectedItem 3 1`;
+			string $seqPath = `optionVar -q "projRoot"` + `optionVar -q "currProj"` + "/" + `optionVar -q "shotDir"` + "/" + $selSeq[0];
+			string $shtFolderLst[] = `b2GetFolderList $seqPath`;
+			for( $eachSht in $shtFolderLst )
+			{
+				string $mayaDB = $selSeq[0] + "_" + $eachSht + "_maya";
+				string $shtPath = $seqPath + "/" + $eachSht + "/" + $mayaDB + "/scenes/ani/";
+				string $layerDirLst[] = `b2GetFolderList $shtPath`;
+					$layerDirLst = `stringArrayAddPrefix $layerDirLst $shtPath`;
+				for( $eachLayer in $layerDirLst )
+				{
+					string $infoPath = $eachLayer + "/_info/";
+					string $histFile[] = `getFileList -folder $infoPath -filespec "*.xml"`;
+					string $histStr[] = `b2GetHistoryString ($infoPath + "/" + $histFile[0])`;
+					string $verStr[] = `b2GetVersionFromHistory $histStr[0]`;
+					print "$verStr =\n";
+					print $verStr;
+					print "\n";
+					string $movFileLst[];
+					string $movPath;
+
+					if( $verStr[0] == "develop" )
+					{
+						$movPath = $eachLayer + "/" + "develop/v" + $verStr[1] + "/";
+						$movFileLst = `getFileList -folder $movPath -filespec "*.mov"`;
+
+						for( $i = 0; $i < size($movFileLst); $i++ )
+						{
+							$movFileLst[$i] = $movPath + $movFileLst[$i];
+						}
+					}
+					else if( $verStr[0] == "release" )
+					{
+						$movPath = $eachLayer + "/release/r" + $verStr[1] + "/";
+						print "$movPath =\n";
+						$movFileLst = `getFileList -folder $movPath -filespec "*.mov"`;
+						for( $i = 0; $i < size($movFileLst); $i++ )
+						{
+							$movFileLst[$i] = $movPath + $movFileLst[$i];
+						}
+					}
+					$allMovLst = `stringArrayCatenate $allMovLst $movFileLst`;
+				}
+			}
+
+			print "b2GetSeqMov..........................................................................................................procedure end\n";
+			return $allMovLst;
+		}
+		
+		// global proc string[] b2GetSeqMov()
+		// {
+			// print "b2GetSeqMov........................................................................................................procedure start\n";
+			// string $allMovLst[];
+			// string $selSeq[] = `b2GetCurrentlySelectedItem 3 1`;
+			// string $seqPath = `optionVar -q "projRoot"` + `optionVar -q "currProj"` + "/" + `optionVar -q "shotDir"` + "/" + $selSeq[0];
+			// string $shtFolderLst[] = `b2GetFolderList $seqPath`;
+			// for( $eachSht in $shtFolderLst )
+			// {
+				// string $mayaDB = $selSeq[0] + "_" + $eachSht + "_maya";
+				// string $shtPath = $seqPath + "/" + $eachSht + "/" + $mayaDB + "/scenes/ani/";
+				// string $layerDir[] = `b2GetFolderList $shtPath`;
+					// $layerDir = `stringArrayAddPrefix $layerDir ($shtPath)`;
+				// string $movFileLst[];
+				// string $movPath;
+				// string $shtInfoFile[];
+
+				// for( $eachLayer in $layerDir )
+				// {
+					// $eachLayer += "/develop/";
+					// string $verLst[] = `getFileList -folder $eachLayer -filespec "v*"`;
+					// $movPath = $eachLayer + $verLst[size($verLst) - 1] + "/";
+					// print "$movPath =\n";
+					// print $movPath;
+					// print "\n";
+					// $movFileLst = `getFileList -folder $movPath -filespec "*.mov"`;
+					// $movFileLst = `stringArrayAddPrefix $movFileLst $movPath`;
+					// $allMovLst = `stringArrayCatenate $allMovLst $movFileLst`;
+				// }
+			// }
+
+			// print "b2GetSeqMov..........................................................................................................procedure end\n";
+			// return $allMovLst;
+		// }
+		
+		//-/
+		
+		
+		//- b2StartNewShotWin //-------------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2StartNewShotWin()
+		{
+			print "b2StartNewShotWin......................................................................................................procedure start\n";
+			string $shtDef;
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+			if ($selItem[3] != "")
+			{
+				string $shtPath = `b2GetFileName2 $selItem[0] $selItem[1] "" "" 0 "folder" 0`;
+				string $shtDefFile = $shtPath + $selItem[1] + "_def.xml";
+				string $shtName = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "nextDevelop" 0`;
+					$shtName = (`basenameEx $shtName`) + "_001.ma";
+				string $shtCompoLayerPath = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "folder" 0`;		
+				string $shtCompoLayerDefFile = $shtCompoLayerPath + $selItem[3] + "_def.xml";
+				string $shtInfo[] = `b2GetShotDefInfo $shtDefFile`;
+				string $shtCompoLayerInfo[] = `b2GetShotDefInfo $shtCompoLayerDefFile`;
+				string $cmd = "b2NewSceneSetup \"" + $shtDefFile + "\" \"new\"";			
+				
+				if (`window -exists "b2SubWin1"`)
+				{
+					deleteUI "b2SubWin1";
+				}
+				string $window = `window -title "b2StartNewShot" -sizeable false b2SubWin1`;
+					string $rootLayout = `columnLayout -columnWidth 510 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+						separator;
+						text -label "프로젝트의 기본정보, 혹은 샷의 기본정보로부터 몇가지 정보를 가져와 새로운 씬을 생성합니다.";
+						text -label "샷의 이름은 서버에 저장된 마지막 develop 버전의 다음 버전으로 만들어집니다.";
+						text -label "생성한 씬은 지정한 디렉토리에 자동으로 저장됩니다.";
+						text -label "설정값에 변경이 필요하다면 아래 Scene Info에서 해당 항목을 수정하세요.";
+						separator;
+						text -label "File Info" -font "boldLabelFont";
+						separator -width 400;
+						rowColumnLayout -numberOfColumns 2
+							-columnWidth 1 120 -columnWidth 2 300
+							-columnAttach 1 "right" 0 -columnAttach 2 "left" 4 -rowSpacing 1 5;
+							text -label "File Name :" -font "boldLabelFont";
+							textField -width 300 -text $shtName shtNameField;	
+					setParent ..;
+						rowLayout -numberOfColumns 3
+							-columnWidth 1 120 -columnWidth 2 300 -columnWidth 3 100
+							-columnAttach 1 "right" 0 -columnAttach 2 "left" 2 -columnAttach 3 "left" 0;
+							text -label "Save Location :" -font "boldLabelFont";
+							textField -width 300 -text "" saveLocField;
+							button -label "Browse..." -command "b2FileDialog dir maya saveLocField" ;
+					setParent ..;
+						text -label "";
+						text -label "Scene Info" -font "boldLabelFont";
+						separator -width 400;
+						rowColumnLayout -numberOfColumns 2
+							-columnWidth 1 120 -columnWidth 2 300
+							-columnAttach 1 "right" 0 -columnAttach 2 "both" 5 -rowSpacing 1 5;
+							text -label "Image Width :" -font "boldLabelFont";
+							textField -text "" imgWidthField;
+							text -label "Image Height :" -font "boldLabelFont";
+							textField -text "" imgHeightField;
+							text -label "Start Frame :" -font "boldLabelFont";
+							textField -text "" stFrameField;
+							text -label "End Frame :" -font "boldLabelFont";
+							textField -text "" edFrameField;
+							text -label "Frame Rate :" -font "boldLabelFont";
+							optionMenu fpsMenu;
+								menuItem -label "Select Frame Rate   ";
+								menuItem -label "game";
+								menuItem -label "film";
+								menuItem -label "ntsc";
+							text -label "Pixel Ratio :" -font "boldLabelFont";
+							textField -text "" pxRatioField;
+					setParent ..;
+						separator -width 350;
+						rowLayout -numberOfColumns 2 -columnWidth2 378 122 -columnAttach 1 "right" 0 -columnAttach 2 "left" 0;
+							button -label "Create Scene" -width 120 -command $cmd;
+							button -label "Cancel" -width 120 -command "deleteUI b2SubWin1";
+					showWindow $window;
+					
+					textField -edit -text $shtInfo[1] imgWidthField;
+					textField -edit -text $shtInfo[2] imgHeightField;
+					textField -edit -text $shtInfo[3] stFrameField;
+					textField -edit -text $shtInfo[4] edFrameField;
+					optionMenu -edit -value $shtInfo[5] fpsMenu;
+					textField -edit -text $shtInfo[6] pxRatioField;				
+			}
+			else
+			{
+				confirmDialog -title "Error" -message "샷 레이어를 선택하세요";
+			}
+			print "b2StartNewShotWin........................................................................................................procedure end\n";
+			//추가.
+			b2autoLocalDir "new";
+			
+		}
+		//-/
+
+		
+		//- b2NewSceneSetup //---------------------------------------------------------------------------------------------------------------------//
+		// b2StartNewShotWin에서 받아온 값으로 마야 씬 셋업
+		// $key == new : 새 씬을 셋업.
+		// $key == set : 현재 씬을 셋업
+		//
+		global proc b2NewSceneSetup (string $defFile, string $key )
+		{
+			print "b2NewSceneSetup........................................................................................................procedure start\n";
+			string $shtInfo[] = `b2GetShotDefInfo $defFile`;
+			string $sceneName;
+			string $savePath;
+			float $imgWidth;
+			float $imgHeight;
+			int $stFrame;
+			int $edFrame;
+			string $fps;
+			float $devAspRatio;
+			print "$shtInfo =\n";
+			print $shtInfo;
+			print "\n";
+			
+			if( $key == "new" )
+			{
+				$sceneName = `textField -q -text shtNameField`;
+				$savePath = `textField -q -text saveLocField`;
+				$sceneName = $savePath + $sceneName;
+				$imgWidth = `textField -q -text imgWidthField`;
+				$imgHeight = `textField -q -text imgHeightField`;
+				$stFrame = `textField -q -text stFrameField`;
+				$edFrame = `textField -q -text edFrameField`;		
+				$fps = `optionMenu -q -value fpsMenu`;
+				$devAspRatio = $imgWidth / $imgHeight;
+			}
+			else if( $key == "set" )
+			{
+				$sceneName = $shtInfo[0];
+				$imgWidth = $shtInfo[1];
+				$imgHeight = $shtInfo[2];
+				$stFrame = $shtInfo[3];
+				$edFrame = $shtInfo[4];
+				$fps = $shtInfo[5];
+				$devAspRatio = $imgWidth / $imgHeight;
+				print "$sceneName =\n";
+				print $sceneName;
+				print "\n";
+			}
+			
+			string $forceNew;
+			
+			if( $key == "new" )
+			{
+				$forceNew = `confirmDialog -title "Warning" -message "새 씬을 만드시겠습니까?\n만일 현재 작업중인 씬이 열려있다면 저장을 먼저 해주세요"
+					-button "Yes" -button "Cancel" -defaultButton "Yes" -cancelButton "Cancel" -dismissString "Cancel"`;
+			}
+			else
+			{
+				$forceNew = "";
+			}
+
+			if ($forceNew == "Yes")
+			{				
+				string $pathMatch = `match "^[A-Z]:/" $savePath`;
+				if (!size($pathMatch))
+				{
+					confirmDialog -title "Error" -message "파일을 저장할 경로를 지정해주세요";
+				}
+				else
+				{
+					//path가 존재하지 않으면 생성.
+					b2makeFolder $savePath;
+					file -force -new;
+				}
+			}
+			
+			currentUnit -time $fps;				
+			setAttr defaultRenderGlobals.animation 1;
+			setAttr defaultRenderGlobals.startFrame $stFrame;
+			setAttr defaultRenderGlobals.endFrame $edFrame;
+			playbackOptions -animationStartTime 1;
+			playbackOptions -min $stFrame;
+			playbackOptions -max $edFrame;
+			currentTime $stFrame;
+
+			setAttr defaultResolution.width $imgWidth;
+			setAttr defaultResolution.height $imgHeight;
+			setAttr defaultResolution.deviceAspectRatio $devAspRatio;
+			
+			if( $forceNew == "Yes" )
+			{
+				file -type "mayaAscii";
+				file -rename $sceneName;
+				string $existence = `filetest -f $sceneName`;
+				if ($existence)
+				{
+					confirmDialog -title "Error" -message "같은 이름의 파일이 이미 존재합니다";
+				}
+				else
+				{
+					file -type "mayaAscii" -save;
+					deleteUI b2SubWin1;
+					b2UpdShotDefInfo "";
+				}
+			}
+			else
+			{
+				confirmDialog -title "Info" -message "씬 셋업을 마쳤습니다. 릴리즈 파일을 불러들여 주세요";
+			}
+			print "b2NewSceneSetup..........................................................................................................procedure end\n";
+		}
+		//-/
+		
+		
+		//- b2SaveNewShotCallback //---------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2SaveNewShotCallback( string $key )
+		{
+			print "b2SaveNewShotCallback..................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+			string $component = $selItem[2];
+			print "$component =\n";
+			print $component;
+			print "\n";
+			print "$key =\n";
+			print $key;
+			print "\n";
+			if ($selItem[2] == "")
+			{
+				confirmDialog -title "Warning" -message "샷 컴포넌트를 선택하세요";
+			}
+			else if ($selItem[3] == "")
+			{
+				confirmDialog -title "Warning" -message "컴포넌트 레이어를 선택하세요";
+			}
+			else
+			{
+				if ($component == "ani")
+				{
+					if ($key == "dev")
+					{
+						b2SaveAniDevUI;
+					}
+					else if ($key == "rel")
+					{
+						b2SaveAniRelUI;
+					}
+				}
+				else if( $component == "efx" )
+				{
+					if( $key == "dev" )
+					{
+						b2SaveFxDevUI;
+					}
+					else if( $key == "rel" )
+					{
+						b2SaveFxRelUI;
+					}
+				}
+				else
+				{
+					confirmDialog -title "Info" -message "해당 컴포넌트를 위한 모듈이 없습니다.\n파이프라인 관리자에게 문의하세요";
+				}
+			}
+			print "b2SaveNewShotCallback....................................................................................................procedure end\n";
+		}
+		//-/
+		
+
+		//- b2GetShotCallback //-------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 샷 파일 다운로드 UI나 레퍼런싱/임포트 UI로 파일 경로 전달.
+		//			- 이후 현재 작업 종류에 따라 다른 기능으로 연결되도록 개선할것.
+		// 입력		- $key: 현재 더미값 입력.
+		//
+		global proc b2GetShotCallback ( string $key )
+		{
+			print "b2GetShotCallback......................................................................................................procedure start\n";
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+			string $callProcedure;
+			string $command;
+			if( $key == "down" )
+			{
+				switch ($selItem[2])
+				{
+					case "ani":
+						$callProcedure = "b2DownloadAniDevUI";
+						break;
+				}
+				string $selVerStr = `textField -q -text "selectedShotVersionField"`;
+				string $verTypeStr = `match "^[a-z]" $selVerStr`;
+				if( $verTypeStr != "v" )
+				{
+					confirmDialog -title "Warning" -message "릴리즈된 파일은 다운로드 할 수 없습니다.";
+				}
+				else
+				{
+					if( $selVerStr == "N/A" || $selVerStr == "" )
+					{
+						confirmDialog -title "Warning" -message "가져올 샷 버전을 선택하세요";
+					}
+					else
+					{
+						string $srcPath = `textFieldButtonGrp -q -text shtFileLocField`;
+						$srcPath = `b2AddSlash $srcPath`;
+						$command = ($callProcedure + " \"" + $srcPath + "\"");
+						eval $command;
+					}
+				}
+			}
+			else if( $key == "get" )
+			{
+				
+			}
+			print "b2GetShotCallback........................................................................................................procedure end\n";
+		}
+		//-/
+		
+		
+		//- b2DownloadAniDevUI //------------------------------------------------------------------------------------------------------------------//
+		// 기능		- b2GetShotCallback에서 넘겨받은 경로의 파일 리스트를 제시하고 사용자가 선택한 파일을 다운로드할 경로를 선택할 UI 제공
+		//			- b2DoDownloadAniDevFiles procedure를 실행.
+		//
+		//
+		global proc b2DownloadAniDevUI( string $path )
+		{
+			print "bDownloadAniDevUI........................................................................................................procedure start\n";
+			if ( `window -exists "b2SubWin1"` )
+			{
+				deleteUI "b2SubWin1";
+			}
+			string $selVerStr = `textField -q -text "selectedShotVersionField"`;
+			string $window = `window -title "b2DownloadShot" -sizeable false b2SubWin1`;
+				string $rootLayout = `columnLayout -columnWidth 410 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+					separator -width 400;
+					text -label "선택한 파일을 지정한 로컬 디렉토리로 다운로드 합니다.";
+					text -label "파일명 중복을 피하기 위해 파일명 뒤에 \"_checkedOut\"문자를 붙입니다.";
+					separator -width 400;
+					text -label "Files to be downloaded" -font "boldLabelFont";
+					scrollLayout -width 400 -height 200 fileList;				
+				setParent ..;
+					separator -width 400;
+					textFieldButtonGrp -label "Target Directory :" -text "" -buttonLabel " Browse... " -buttonCommand "b2FileDialog dir maya setPathField"
+						-columnWidth 1 90 -columnWidth 2 240 -columnWidth 3 70
+						setPathField;
+					separator -width 400;
+				setParent ..;
+					rowLayout -numberOfColumns 3 -columnWidth 1 150 -columnWidth 2 122 -columnWidth 3 122;
+						text -label "";
+						button -label "Download" -width 120 -command ("b2DoDownloadAniDevFiles \"" + $path + "\"");
+						button -label "Cancel" -width 120 -command "deleteUI b2SubWin1";
+				setParent ..;
+			showWindow $window;
+		
+			string $fileList[] = `getFileList -folder $path -filespec "*.*"`;
+			string $removeItem[];
+			string $finalList[];
+			for( $eachItem in $fileList )
+			{
+				string $testFile = $path + $eachItem;
+				string $result = `filetest -f $testFile`;
+				if ( $result == 0 )
+				{
+					$removeItem[size($removeItem)] = $eachItem;
+				}
+				if( size($removeItem) )
+				{
+					$finalList = stringArrayRemoveExact( $removeItem, $fileList );
+				}
+				else
+				{
+					$finalList = $fileList;
+				}
+			}
+			// $finalList = $fileList;
+			int $i = 0;
+			for( $eachFile in $finalList )
+			{
+				checkBox -label $eachFile -parent "fileList" ("devFile" + $i);
+				$i ++;
+			}
+			b2autoLocalDir "shot";
+			print "b2DownloadAniDevUI.......................................................................................................procedure end\n";
+		}
+		//-/
+		
+		
+		//- b2DoDownloadAniDevFiles //-------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2DoDownloadAniDevFiles ( string $srcPath )
+		{
+			print "b2DoDownloadAniDevFiles................................................................................................procedure start\n";
+			string $targetPath = `textFieldButtonGrp -q -text setPathField`;
+			string $checkPathStr = `match "^[A-Z]:/" $targetPath`;
+			int $checkPathExists = `filetest -d $targetPath`;
+			string $fileList[];
+			string $mayaFileDown;
+			string $failedList[];
+			
+			// if( $checkPathStr == "" || $checkPathExists == 0)
+			if( $checkPathStr == "" )			
+			{
+				confirmDialog -title "Warning" -message "파일을 저장할 디렉토리를 선택하세요";
+			}
+			else
+			{
+				if ($checkPathExists == 0)
+					b2makeFolder $targetPath;			
+						
+				string $checkedItems[] = `scrollLayout -q -childArray fileList`;
+				for( $eachItem in $checkedItems )
+				{
+					int $checked = `checkBox -q -value $eachItem`;
+					if( $checked == 1 )
+					{
+						string $label = `checkBox -q -label $eachItem`;
+						$fileList[size($fileList)] = $label;
+					}
+				}
+				if( size($fileList) )
+				{
+					for( $eachFile in $fileList )
+					{
+						string $srcFile = $srcPath + $eachFile;
+
+						string $buffer[] = `stringToStringArray $eachFile "."`;
+						string $newFile = $buffer[0] + "_checkedOut." + $buffer[1];
+						string $targetFile = $targetPath + $newFile;
+						string $matchMaya = `match "[.]ma" $targetFile`;
+						if( $matchMaya != "" )
+						{
+							$mayaFileDown = $targetFile;
+						}
+
+						int $fileTest = `filetest -f $targetFile`;
+						if( $fileTest )
+						{
+							confirmDialog -title "Warning" -message "이미 다운로드 받은 파일이 있습니다.";
+						}
+						else
+						{
+							string $result = `b2CopyFile $srcFile $targetFile`;
+							if( $result != 1 )
+							{
+								$failedList[size($failedList)] = $eachFile;
+							}
+					
+						}
+					}
+					if( size($failedList) != 0 )
+					{
+						deleteUI b2SubWin1;
+						confirmDialog -title "Info" -message "로컬 디렉토리로 복사하지 못한 파일이 있습니다.\n목록을 스크립트 에디터로 출력합니다.";
+						print "===========================================================================================\n";
+						print "                           다음 파일을 복사하지 못했습니다.\n";
+						print "===========================================================================================\n";
+						print $failedList;
+						print "===========================================================================================\n";
+					}
+					else
+					{
+						string $openChoice = `confirmDialog -title "Info" -message "파일을 로컬 드라이브로 모두 복사 했습니다.\n파일을 지금 여시겠습니까?"
+							-button "Yes" -button "No" -defaultButton "Yes" -cancelButton "No" -dismissString "No"`;
+							
+						if ( $openChoice == "Yes" )
+						{
+							deleteUI b2SubWin1;
+							/*
+							file -new -f;
+							file -open $mayaFileDown;
+							*/
+							python ("import tak_updateRef");
+							python ("reload(tak_updateRef)");
+							string $newFilePath = `python ("tak_updateRef.updateRef('" + $mayaFileDown  + "')")`;
+							
+							file -new -f;
+							if ( $newFilePath != "" )
+								file -open $newFilePath;
+							else 
+								file -open $mayaFileDown;	
+							
+							
+						}
+						else
+						{
+							deleteUI b2SubWin1;
+						}
+					}
+		
+				}
+			}
+			print "b2DoDownloadAniDevFiles..................................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2GetReleasedFilesCallback //----------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2GetReleasedFilesCallback()
+		{
+			print "b2GetReleasedFilesCallback.............................................................................................procedure start\n";
+			string $shtDefFilePath;
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+			string $cmd;
+			switch( $selItem[2] )
+			{
+				case "ani":
+					$cmd = "b2GetReleasedAniUI";
+					break;
+			}
+			eval $cmd;
+			print "b2GetReleasedFilesCallback...............................................................................................procedure end\n";
+		}
+		//-/
+
+
+		//- b2GetReleasedAniUI //------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 선택한 애니메이션 릴리즈 파일을 씬으로 불러들이기 위한 UI.
+		// 작동절차	- 샷 히스토리에서 체크된 체크박스의 이름으로 파일 목록을 작성.
+		//			- 같은 요소인데 버전이 다른 경우 최종 버전만 남김.
+		//
+		global proc b2GetReleasedAniUI()
+		{
+			print "b2GetReleasedAniUI.....................................................................................................procedure start\n";
+			string $chkBoxLst[] = `lsUI -type "checkBox"`;
+			for( $eachBox in $chkBoxLst )
+			{
+				string $label = `checkBox -q -label $eachBox`;
+			}
+			string $chkBoxCheckedLst[];
+			string $relFileLst[];
+			string $latestFileLst[];
+			
+			//모든 체크박스중 체크된 릴리즈파일 박스에서 파일명 추출
+			for( $item in $chkBoxLst )
+			{
+				string $match = `match "^fileChkBox_" $item`;
+				if( size($match) && `checkBox -q -value $item` == 1 )
+				{
+					$chkBoxCheckedLst[size($chkBoxCheckedLst)] = $item;
+				}
+			}		
+			for( $eachItem in $chkBoxCheckedLst )
+			{
+				$relFileLst[size($relFileLst)] = `checkBox -q -label $eachItem`;			
+			}
+			
+			//각 파일들에서 최종버전만 추출
+			for( $eachFile in $relFileLst )
+			{
+				//문자열에서 확장자와  버전 부분을 제거하여 비교문자열을 설정
+				string $basename = `basenameEx $eachFile`;
+				int $length = size($basename);
+				int $subNum = 4;
+				$length = $length - $subNum;
+				string $compare1 = `substring $basename 1 $length`;
+				string $buffer[];
+				clear $buffer;				
+				
+				//릴리즈 파일 목록의 내용과 $compare1을 비교하여 매치되면 버퍼에 저장. 
+				for( $compare2 in $relFileLst )
+				{
+					string $match = `match $compare1 $compare2`;
+					if( size($match) )
+					{
+						$buffer[size($buffer)] = $compare2;
+					}
+				}
+				
+				//버퍼의 내용을 정렬하여 최종버전을 추출
+				$buffer = `sort $buffer`;
+				string $latestVer = $buffer[size($buffer)-1];
+				
+				//최종버전 리스트에 $latestVer의 문자열이 존재하는지 확인하여 없으면 추가
+				int $chkExistence = stringArrayContains( $latestVer, $latestFileLst );
+				if( !$chkExistence )
+				{
+					$latestFileLst[size($latestFileLst)] = $latestVer;
+				}
+				
+			}
+			
+			$latestFileLst = `sort $latestFileLst`;
+			
+			
+			string $shtDefFilePath;
+			string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+			if( $selItem[3] != "" )
+			{
+				string $shtPath = `textFieldButtonGrp -q -text shtFileLocField`;
+				string $shtDefFile[] = `getFileList -folder $shtPath -filespec "*.xml"`;
+				$shtDefFilePath = $shtPath + $shtDefFile[0];
+			}
+			string $setupCmd = "b2NewSceneSetup \"" + $shtDefFilePath + "\" \"set\"";	
+			if ( `window -exists "b2SubWin1"` )
+			{
+				deleteUI "b2SubWin1";
+			}
+			string $window = `window -title "b2GetReleasedAnimation" -sizeable false b2SubWin1`;
+				string $rootLayout = `columnLayout -columnWidth 410 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+					separator -width 400;
+					text -label "다음 목록에 표시된 파일을 레퍼런싱 합니다..";
+					text -label "이미 씬에 존재하는 데이터는 새 데이터로 교체됩니다.";
+					text -label "같은 애니메이션 릴리즈이나 버전이 다른것을 동시에 선택했다면\n최신 버전만을 사용합니다." -bgc 1 0 0;
+					separator -width 400;
+					text -label "Selected Animation Release" -font "boldLabelFont";
+					textScrollList -width 400 -height 200 -enable false fileList;				
+				// setParent ..;
+					separator -width 400;		
+					rowLayout -numberOfColumns 3 -columnWidth 1 150 -columnWidth 2 122 -columnWidth 3 122;
+						button -label "Set Current Scene" -width 120 -command $setupCmd;
+						button -label "Get Released Animation" -width 120 -command "b2DoGetReleasedAni";
+						button -label "Cancel" -width 120 -command "deleteUI b2SubWin1";
+				setParent ..;
+			showWindow $window;
+			
+			for( $file in $latestFileLst )
+			{
+				textScrollList -edit -append $file fileList;
+			}
+			print "b2GetReleasedAniUI.......................................................................................................procedure end\n";
+		}
+		//-/
+		
+		
+		//- b2ReplaceSceneAssetUI //---------------------------------------------------------------------------------------------------------------//
+		//
+		//
+		global proc b2ReplaceSceneAssetUI()
+		{
+			print "b2ReplaceSceneAssetUI..................................................................................................procedure start\n";
+			if( `window -exists "b2SubWin1"` )
+			{
+				deleteUI "b2SubWin1";
+			}
+			string $window = `window -title "b1ReplaceAsset" -width 400 -sizeable false b2SubWin1`;
+				columnLayout -columnWidth 400 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5;
+					separator -style "in";
+					text -label "교체하고 싶은 어셋을 체크하고 Replace 버튼을 누르면 Replacement Asset으로\n교체됩니다.\n어셋의 구조가 다를 경우 문제가 생길 수 있습니다.";
+					separator -style "in";
+					rowLayout -numberOfColumns 3
+						-columnWidth 1 200 -columnWidth 2 100 -columnWidth 3 100
+						-columnAttach 1 "left" 0 -columnAttach 2 "left" 0 -columnAttach 3 "left" 0
+						-columnAlign 1 "left" -columnAlign 2 "left" -columnAlign 3 "left";
+						text -label "Replacement Asset" -font "boldLabelFont";
+						text -label "Component" -font "boldLabelFont";
+						text -label "Version" -font "boldLabelFont";
+				setParent ..;
+					separator;
+					string $replacementAstLayout = `columnLayout -columnWidth 400 -columnAttach "both" 0 -columnAlign "left" -rowSpacing 3 -bgc 1 0.7 0`;
+				setParent ..;
+					string $fileNameField = `textFieldGrp -editable false -columnWidth 1 30 -columnWidth 2 350 -label "File : " -text "" replacementFileField`;
+					text -label "";
+					//separator -style "in";
+					rowLayout -numberOfColumns 3
+						-columnWidth 1 200 -columnWidth 2 100 -columnWidth 3 100
+						-columnAttach 1 "left" 0 -columnAttach 2 "left" 0 -columnAttach 3 "left" 0
+						-columnAlign 1 "left" -columnAlign 2 "left" -columnAlign 3 "left";
+						text -label "Loaded Asset" -font "boldLabelFont";
+						text -label "Component" -font "boldLabelFont";
+						text -label "Version" -font "boldLabelFont";
+				setParent ..;
+					separator;
+					string $loadedAstLayout = `columnLayout -columnWidth 400 -columnAttach "both" 0 -columnAlign "left" -rowSpacing 3`;
+				setParent ..;
+					//separator;
+					text -label "";
+					rowLayout -numberOfColumns 2
+						-columnWidth 1 288 -columnWidth 2 100 -columnAttach 1 "right" 0 -columnAttach 2 "left" 0
+						-columnAlign 1 "left" -columnAlign 2 "left";
+						button -label "Replace!" -width 98 -command "b2ReplaceSceneAssetCallback";
+						button -label "Cancel" -width 98 -command "deleteUI b2SubWin1";
+	
+			
+			//메인UI에서 선택한 어셋을 replacement asset으로 표시
+			string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+			string $selVersion = `textField -q -text selectedAssetVersionField`;
+
+			if( $selVersion == "None" )
+			{
+				confirmDialog -title "Error" -message "기존 어셋과 교체할 어셋을 버전까지 선택하셔야 합니다.";			
+			}
+			else
+			{
+				string $newNsOrig = $selItem[1];
+				string $newComponent = $selItem[2];
+				string $existingNs[] = `namespaceInfo -listOnlyNamespaces`;
+				string $filePathDir = `textFieldButtonGrp -q -text "astFileLocField"`;
+				string $fileList[] = `getFileList -folder $filePathDir -filespec "*.ma"`;
+
+				rowLayout	-parent $replacementAstLayout-numberOfColumns 3 
+					-columnWidth 1 200 -columnWidth 2 100 -columnWidth 3 100
+					-columnAttach 1 "left" 0 -columnAttach 2 "left" 0 -columnAttach 3 "left" 0
+					-columnAlign 1 "left" -columnAlign 2 "left" -columnAlign 3 "left";
+					text -label $newNsOrig;
+					text -label $newComponent replacementAstCompo;
+					text -label $selVersion;
+				textFieldGrp -edit -text $fileList[0] $fileNameField;
+				
+			
+			//씬에 로드된 어셋의 목록을 UI에 표시.
+			string $refLst[] = `ls -type "reference"`;
+			string $rmRefLst[] = { "sharedReferenceNode" };
+			string $astRefLst[] = `stringArrayRemoveExact $rmRefLst $refLst`;
+
+			for( $eachRef in $astRefLst )
+			{
+				string $filename = `referenceQuery -wcn -filename $eachRef`;
+				string $basename = `basenameEx $filename`;
+				
+				string $nameSplit[] = `stringToStringArray $basename "_"`;
+
+				if( size($nameSplit) <= 5 ) //파일명으로 어셋인지 아닌지 구분하여 어셋이라면 UI에 추가
+				{
+					string $astCompo = $nameSplit[2];
+					string $astNamespace = `referenceQuery -namespace $eachRef`;
+						$astNamespace = `substituteAllString $astNamespace ":" ""`;
+					string $b2VerAttr = "b2" + `capitalizeString $astCompo` + "Ver";
+					
+					string $astRoot = $astNamespace + ":root";
+					string $chkBoxName = "astChkBox_" + $astCompo + "_" + $astNamespace;
+					
+					string $currVerStr = `getAttr( $astRoot + "." + $b2VerAttr )`;
+					rowLayout -parent $loadedAstLayout -numberOfColumns 3
+						-columnWidth 1 200 -columnWidth 2 100 -columnWidth 3 100
+						-columnAttach 1 "left" 0 -columnAttach 2 "left" 0 -columnAttach 3 "left" 0
+						-columnAlign 1 "left" -columnAlign 2 "left" -columnAlign 3 "left";
+						checkBox -label $astNamespace -enable true $chkBoxName;
+						text -label $astCompo;
+						text -label $currVerStr;
+				}
+			}
+				showWindow $window;
+			}
+			print "b2ReplaceSceneAssetUI....................................................................................................procedure end\n";
+		}
+		
+		//-/
+	
+	
+		//- b2CorrectNamespaces //-----------------------------------------------------------------------------------------------------------------//
+		//
+		global proc b2CorrectNamespaces()
+		{
+			print "b2CorrectNamespaces....................................................................................................procedure start\n";
+			string $refNodeLst[] = `ls -type "reference"`;
+			string $rmRefLst[] = { "sharedReferenceNode" };
+			string $astRefLst[] = `stringArrayRemoveExact $rmRefLst $refNodeLst`;			
+			for( $eachRef in $astRefLst )
+			{
+				string $match = `match "sharedReferenceNode" $eachRef`;
+				if( !size($match) )
+				{
+					print "$eachRef =\n";
+					print $eachRef;
+					print "\n";
+					string $temp[] = `stringToStringArray $eachRef "_"`;
+					if( size($temp) > 2 )
+					{
+						string $message1 = "레퍼런스 노드 " + $eachRef + "는(은) 파이프라인 툴을 통해 불러들여진 어셋이 아닌것 같습니다.\n";
+						string $message2 = "네임스페이스를 정리하는 과정에서 문제를 일으킬 수 있어 실제로 사용하고 있는 것이 아니라면 삭제해야 합니다.\n";
+						string $message3 = "만일 삭제하지 않고 계속하여 정상적으로 네임스페이스 정리가 이루어지지 않는다면 에러메세지를 확인하여 수동으로 처리해야 할 수도 있습니다.\n";
+						string $message4 = "이 노드를 삭제할까요?";
+						string $message = $message1 + $message2 + $message3 + $message4;
+						string $confirm = `confirmDialog -title "Warning" -message $message
+							-button "Delete" -button "No" -defaultButton "No" -cancelButton "No" -dismissString "No"`;
+							
+						if( $confirm == "Delete" )
+						{
+							lockNode -lock off $eachRef;
+							delete $eachRef;
+							continue;
+						}
+					}
+					string $filename = `referenceQuery -wcn -filename $eachRef`;
+					print "$filename =\n";
+					print $filename;
+					print "\n";
+					string $basename = `basenameEx $filename`;
+					string $nameSplit[] = `stringToStringArray $basename "_"`;
+					
+					if( size($nameSplit) <= 5 )
+					{
+						string $astName = $nameSplit[1];
+						print "$astName =\n";
+						print $astName;
+						print "\n";
+						string $astNamespace = `referenceQuery -namespace $eachRef`;
+							$astNamespace = `substituteAllString $astNamespace ":" ""`;
+						print "$astNamespace =\n";
+						print $astNamespace;
+						print "\n";
+						string $astNamespaceSplit[] = `stringToStringArray $astNamespace "_"`;
+						string $newAstNamespace = $astName + "_" + $astNamespaceSplit[1];
+						string $newAstRefNode = $newAstNamespace + "RN";
+						if( $astName != $astNamespaceSplit[0] )
+						{
+							namespace -set ":";
+							namespace -rename $astNamespace $newAstNamespace;
+							lockNode -lock off $eachRef;
+							rename $eachRef $newAstRefNode;
+							lockNode -lock on $newAstRefNode; 
+						}
+					}
+				}
+			}
+			print "b2CorrectNamespaces......................................................................................................procedure end\n";
+		}
+		//-/
+
+		
+		//- b2RenameShot
+		//
+		global proc b2RenameShot()
+		{
+			print "b2RenameShot.......................................................................................................precedure start\n";
+			string $choice = `promptDialog
+				-title "New Shot Name"
+				-message "New Shot Name\n공백문자나 한글, 특수문자는 쓰면 안되요!\n"
+				-button "Rename"
+				-button "Cancel"
+				-defaultButton "Rename"
+				-cancelButton "Cancel"
+				-sf true
+				-dismissString "Cancel"`;
+			if ($choice == "Rename")
+			{
+				string $newName = strip(`promptDialog -q -tx`);
+				if( `b2CheckValueFormat "string" $newName` )
+				{
+					string $selItem[] = `b2GetCurrentlySelectedItem 3 2`;
+					string $rootPath = `textFieldButtonGrp -q -text shtFileLocField`;
+					string $seqPath = `b2GetFileName2 $selItem[0] "" "" "" "" "folder" 0`;
+						$seqPath = `b2AddSlash $seqPath`;
+					string $shotPath = `b2GetFileName2 $selItem[0] $selItem[1] "" "" "" "folder" 0`;
+					print "$shotPath =\n";
+					print $shotPath;
+					print "\n";
+					
+					string $mayaDB[] = `getFileList -folder $rootPath -filespec "*_maya"`;
+					string $shotDef[] = `getFileList -folder $rootPath -filespec "*.xml"`;
+					string $scenePath = $rootPath + $mayaDB[0] + "/scenes/";
+					string $componentLst[] = `b2GetFolderList $scenePath`;
+					
+					string $seqLst[] = `b2GetFolderList $seqPath`;
+					
+					if( `stringArrayContains $newName $seqLst` )
+					{
+						confirmDialog -title "Error!" -message "같은 이름의 샷이 이미 있습니다.";
+						b2RenameShot;
+					}
+					else
+					{
+						for( $eachCompo in $componentLst )
+						{
+							print "$eachCompo =\n";
+							print $eachCompo;
+							print "\n";
+							
+							$compoPath = $scenePath + $eachCompo + "/";
+							string $compoDef = $compoPath + $eachCompo + "_def.xml";
+							string $layerLst[] = `b2GetFolderList $compoPath`;
+							
+							for( $eachLayer in $layerLst )
+							{
+								print "$eachLayer =\n";
+								print $eachLayer;
+								print "\n";
+								
+								string $layerPath = $compoPath + $eachLayer + "/";
+								
+								// rename info file.
+								string $infoPath = $layerPath + "_info/";
+								string $infoFile[] = `getFileList -folder $infoPath -filespec "*.xml"`;
+								string $infoFilePath = $infoPath + $infoFile[0];
+								string $newInfoNameBase = `substituteAllString $infoFile[0] $selItem[1] $newName`;
+								string $newInfoNameFull = $infoPath + $newInfoNameBase;
+								print "$infoFilePath =\n";
+								print $infoFilePath;
+								print "\n";
+								print "$newinfoNameFull =\n";
+								print $newInfoNameFull;
+								print "\n";
+								
+								sysFile -rename $newInfoNameFull $infoFilePath;
+								
+								// rename dev file.
+								string $devPath = $layerPath + "develop/";
+								string $relPath = $layerPath + "release/";
+								string $devDir[] = `getFileList -folder $devPath -filespec "v*"`;
+								string $relDir[] = `getFileList -folder $relPath -filespec "r*"`;
+								
+								// rename dev file.
+								for( $eachDev in $devDir )
+								{
+									print "$eachDev =\n";
+									print $eachDev;
+									print "\n";
+									string $eachDevPath = $devPath + $eachDev + "/";
+									string $devFileLst[] = `getFileList -folder $eachDevPath`;
+									for( $eachDevFile in $devFileLst )
+									{
+										string $oldDevName = $eachDevPath + $eachDevFile;
+										string $newDevNameBase = `substituteAllString $eachDevFile $selItem[1] $newName`;
+										string $newDevNameFull = $eachDevPath + $newDevNameBase;
+										print "$oldDevName =\n";
+										print $oldDevName;
+										print "\n";
+										print "$newDevNameFull =\n";
+										print $newDevNameFull;
+										print "\n";
+										
+										sysFile -rename $newDevNameFull $oldDevName;
+									}
+								}
+								
+								// rename release file.
+								for( $eachRel in $relDir )
+								{
+									string $eachRelPath = $relPath + $eachRel + "/";
+									string $relFileLst[] = `getFileList -folder $eachRelPath`;
+									for( $eachRelFile in $relFileLst )
+									{
+										string $oldRelName = $eachRelPath + $eachRelFile;
+										string $newRelNameBase = `substituteAllString $eachRelFile $selItem[1] $newName`;
+										string $newRelNameFull = $eachRelPath + $newRelNameBase;
+										print "$oldRelName =\n";
+										print $oldRelName;
+										print "\n";
+										print "$newRelNameFull =\n";
+										print $newRelNameFull;
+										print "\n";
+										sysFile -rename $newRelNameFull $oldRelName;
+									}
+								}
+							}
+						}
+						
+						// rename maya dir.
+						string $oldMayaPath = $rootPath + $mayaDB[0];
+							$oldMayaPath = `toNativePath $oldMayaPath`;
+						print "$oldMayaPath =\n";
+						print $oldMayaPath;
+						print "\n";
+						string $newMayaNameBase = `substituteAllString $mayaDB[0] $selItem[1] $newName`;
+						print "$newMayaNameBase =\n";
+						print $newMayaNameBase;
+						print "\n";
+						string $renMayaDirCmd = "rename " + $oldMayaPath + " " + $newMayaNameBase;
+						system ( $renMayaDirCmd );
+						
+						// rename shotDef file.
+						string $oldShotDefFilePath = $rootPath + $shotDef[0];
+						string $newShotDefFileBase = `substituteAllString $shotDef[0] $selItem[1] $newName`;
+						string $newShotDefFileFull = $rootPath + $newShotDefFileBase;
+						sysFile -rename $newShotDefFileFull $oldShotDefFilePath;
+						
+						// rename shot directory.
+						string $oldShotPath = `substring $shotPath 1 (size($shotPath) - 1)`;
+							$oldShotPath = `toNativePath $oldShotPath`;
+						string $renShotDirCmd = "rename " + $oldShotPath + " " + $newName;
+						print "$oldShotPath =\n";
+						print $oldShotPath;
+						print "\n";
+						print "$renShotDirCmd =\n";
+						print $renShotDirCmd;
+						print "\n";
+						system ( $renShotDirCmd );
+					}
+					b2UpdateUI;
+				}
+				else
+				{
+					confirmDialog -title "Error!" -message "입력하신 문자열에 사용할 수 없는 문자가 포함되어 있습니다.";
+					b2RenameShot;
+				}
+			}
+			print "b2RenameShot.........................................................................................................precedure end\n";
+		}
+		//-/
+		
+		
+	//-/
+	
+	
+//-/

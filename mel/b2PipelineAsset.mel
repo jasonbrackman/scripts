@@ -1,0 +1,1689 @@
+//- 어셋 import/referencing/download 관련 UI 및 실행
+
+	//- b2GetAssetUI - 어셋을 씬으로 불러들기 UI
+	global proc b2GetAssetUI()
+	{
+		if (`window -exists b2SubWin1`)
+		{
+			deleteUI b2SubWin1;
+		}
+		string $lodList[] = `b2CheckLOD`;
+		
+		string $window = `window -title "Reference Asset" -sizeable false b2SubWin1`;
+			string $rootUI = `columnLayout -columnWidth 420 -columnAttach "both" 10 -columnAlign "left" -rowSpacing 5`;
+				separator;
+				rowLayout -numberOfColumns 3 -columnWidth3 200 20 200 -columnAttach3 left left left;
+					columnLayout -columnWidth 200 -columnAttach left 10 -columnAlign left -rowSpacing 5;
+						text -label "불러들일 형식을 정해주세요.";
+						string $radioCollection = `radioCollection getTypeRadio`;
+						string $rButton1 = `radioButton -label "Create Reference" -sl radioReference`;
+						string $rButton2 = `radioButton -label "Import" radioImport`;
+				setParent ..;
+					separator -width 3 -height 60 -horizontal false;
+					columnLayout -columnWidth 200 -columnAttach left 10 -columnAlign left -rowSpacing 5;
+						text -label "LOD를 선택해주세요.";
+						string $lodSelector = `optionMenuGrp -label "LOD :" -columnWidth2 30 170 -columnAlign2 left left lodSelector`;
+							menuItem -label "Default";
+							for ($item in $lodList)
+							{
+								menuItem -label $item;
+							}							
+						text -label "";
+					
+			setParent $rootUI;
+				separator;
+				text -label "임의의 namespace를 사용하려면 이름을 입력해주세요\n이름을 입력하지 않으면 어셋의 타입에 따라 자동으로 네임스페이스를 설정합니다.";
+				string $namespaceField = `textFieldGrp
+					-label "Custom Namespace : "
+					-columnWidth2 110 200
+					namespaceField`;
+				separator;
+				rowLayout -numberOfColumns 2 -columnWidth2 297 1 -columnAttach2 "right" "left";
+					button -label "GetAsset"  -width 100 -command "b2GetAsset";
+					button -label "Cancel" -width 100 -command "deleteUI b2SubWin1";
+		
+		showWindow $window;
+	}
+	//-/
+
+	
+	// b2GetAsset
+	// 기능		- GetAsset 버튼 실행
+	// 작동절차	- UI에서 선택한 lod에 대응하는 파일을 디렉토리에서 검색하여 어셋이름에 맞는 네임스페이스로 import/refernce.
+	//			- 네임스페이스에 중복이 있다면 번호를 증가시킴.
+	//			- 불러들인 어셋을 어셋 타입에 대응하는 그룹을 생성하여 포함시킴.
+	//-
+	global proc b2GetAsset()
+	{
+		print( "b2GetAsset...........................................................................................................procedure start\n" );
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 3`; 
+		string $ns;
+		string $customNs = `textFieldGrp -q -text namespaceField`;
+		string $selVerStr;
+		string $latestVerStr;
+		string $dirPath = `textFieldButtonGrp -q -text astFileLocField`;
+		string $fileName;
+		string $selRadio = `radioCollection -q -select getTypeRadio`; //refernecing or import?
+		string $selLod = `optionMenuGrp -q -value lodSelector`; //UI에서 선택한 lod값 확인
+		string $assetType = $selItem[0];
+
+		
+		//- 네임스페이스 설정
+		int $nsNum = 1;
+		string $nsNumStr;
+		
+		if ($customNs == "") //UI에서 따로 설정한 네임스페이스가 있는지 확인하고 없으면 기본설정을 적용
+		{
+			// $ns = $selItem[0] + "_" + $selItem[1]; //namespace에서는 assetType 사용 안하고 그룹처리
+			$ns = $selItem[1] + "_";
+		}
+		else
+		{
+			$ns = $customNs;
+		}
+		namespace -set ":";
+		string $existingNs[] = `getFullNSTree`;
+		string $conflictingNs[];
+		for ($item in $existingNs) //씬에 존재하는 네임스페이스와 충돌한다면 $conflictingNamespaces에 저장
+		{
+			string $matchCmd = ("match \"" + $ns + "[0-9]{3}\"" + " \"" + $item + "\"");
+			string $matchResult = `eval $matchCmd`;
+			if ( `size($matchResult)`)
+			{
+				$conflictingNs[`size($conflictingNs)`] = $item;
+			}
+			else
+			{
+				continue;
+			}
+		}
+		int $conflictCount = `size($conflictingNs)`;
+		if (!$conflictCount)
+		{
+			$nsNumStr = b2Pad ( $nsNum, 3);
+		}
+		else //충돌하는 네임스페이스의 마지막 세자리 숫자에 1을 더함.
+		{
+			$conflictingNs = sort($conflictingNs);
+			// int $lastNsNum[] = b2GetVersionFromFile($conflictingNs[size($conflictingNs) - 1], "n");
+			string $lastNs = $conflictingNs[$conflictCount - 1];
+			int $lastNsNum = endString($lastNs, 3);
+			$nsNumStr = b2Pad (($lastNsNum + 1), 3);
+		}	
+		$ns = $ns + $nsNumStr;
+		//-/
+		
+		//- $selLod 값에 따라 불러들일 lod level과 맞는 파일을 검색
+		string $existingFiles[] = `getFileList -folder $dirPath -filespec "*.ma"`;
+		print "files in the directory are......\n";
+		print $existingFiles;
+		print "\n";
+		if( size($existingFiles) > 1 )
+		{
+			for ($file in $existingFiles)
+			{
+				print "$file = \n";
+				print $file;
+				print "\n";
+				print "$selLod =\n";
+				print $selLod;
+				print "\n";
+				if ($selLod != "Default")
+				{
+					string $matchLod = `match ("_" + $selLod + "_") $file`;
+					print "$matchLod =\n";
+					print $matchLod;
+					print "\n";
+					if (size($matchLod))
+					{
+						$fileName = $file;
+						break;
+					}
+					else
+					{
+						$fileName = "";
+					}
+				}
+				else
+				{
+					string $matchRig = `match "_rig_" $file`;
+					string $matchLod = `match "_lod01_" $file`;
+					if( size($matchRig) && size($matchLod) )
+					{
+						$fileName = $file;
+					}
+				}
+			}
+		}
+		else
+		{
+			$fileName = $existingFiles[0];
+		}
+		//-/
+		
+		print "$fileName =\n";
+		print $fileName;
+		print "\n";
+		int $grpExist = `objExists $assetType`; // 불러들인 어셋을 포함시킬 그룹이 이미 존재하는지 확인하고 없으면 어셋 타입을 이름으로 하는 그룹 생성
+		$fileName = $dirPath + $fileName;
+		int $existence = `filetest -f $fileName`;
+		if ($existence != 1)
+		{
+			confirmDialog -title "Warning!" -message "선택한 버전의 파일이 없습니다.";
+		}
+		else
+		{
+			if (!$grpExist)
+			{
+				group -em -n $assetType;
+			}
+			if ($selRadio == "radioReference")
+			{
+//				file -prompt false -r -type "mayaAscii"  -gl -loadReferenceDepth "all" -namespace $ns -options "v=0" $fileName;
+				file -prompt false -r -type "mayaAscii"  -gl -mergeNamespacesOnClash false -namespace $ns -options "v=0" $fileName;
+
+
+				deleteUI b2SubWin1;
+			}
+			else if ($selRadio == "NONE")
+			{
+				confirmDialog -title "Warning!" -message "임포트 할 것인지 레퍼런스를 사용할 것인지 정하세요!";
+			}
+			else
+			{
+				file -prompt false -import -type "mayaAscii" -ra true -namespace $ns -options "v=0" -pr  -loadReferenceDepth "all" $fileName;
+				deleteUI b2SubWin1;
+			}
+			string $rootNode = "|" + $ns + ":root"; // root가 하위에도 존재할 경우에 대비해 최 상위 root만 선택
+			parent $rootNode $assetType;
+			
+		}		
+	}
+	//-/
+
+	
+// b2DownloadAssetUI
+		// 기능		- b2GetAssetCallback에서 넘겨받은 경로의 파일 리스트를 제시하고 사용자가 선택한 파일을 다운로드할 경로를 선택할 UI 제공
+		//			- b2SaveAssetToLocal procedure를 실행.
+		//
+		//-
+		global proc b2DownloadAssetUI( string $path )
+		{
+			print ("given path is " + $path + "\n");
+			if ( `window -exists "b2SubWin1"` )
+			{
+				deleteUI "b2SubWin1";
+			}
+			string $selVerStr = `textField -q -text "selectedShotVersionField"`;
+			string $window = `window -title "b2DownloadAsset" -sizeable false b2SubWin1`;
+				string $rootLayout = `columnLayout -columnWidth 410 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+					separator -width 400;
+					text -label "선택한 파일을 지정한 로컬 디렉토리로 다운로드 합니다.";
+					text -label "파일명 중복을 피하기 위해 파일명 뒤에 \"_checkedOut\"문자를 붙입니다.";
+					separator -width 400;
+					text -label "Files to be downloaded" -font "boldLabelFont";
+					scrollLayout -width 400 -height 200 fileList;				
+				setParent ..;
+					separator -width 400;
+					textFieldButtonGrp -label "Target Directory :" -text "" -buttonLabel " Browse... " -buttonCommand "b2FileDialog dir maya setPathField"
+						-columnWidth 1 90 -columnWidth 2 240 -columnWidth 3 70
+						setPathField;
+					separator -width 400;
+				setParent ..;
+					rowLayout -numberOfColumns 3 -columnWidth 1 150 -columnWidth 2 122 -columnWidth 3 122;
+						text -label "";
+						button -label "Download" -width 120 -command ("b2DoDownloadAssetFiles \"" + $path + "\"");
+						button -label "Cancel" -width 120 -command "deleteUI b2SubWin1";
+				setParent ..;
+			showWindow $window;
+		
+			string $fileList[] = `getFileList -folder $path -filespec "*.*"`;
+			string $removeItem[];
+			string $finalList[];
+			for( $eachItem in $fileList )
+			{
+				string $testFile = $path + $eachItem;
+				string $result = `filetest -f $testFile`;
+				if ( $result == 0 )
+				{
+					$removeItem[size($removeItem)] = $eachItem;
+				}
+				if( size($removeItem) )
+				{
+					$finalList = stringArrayRemoveExact( $removeItem, $fileList );
+				}
+				else
+				{
+					$finalList = $fileList;
+				}
+			}
+			// $finalList = $fileList;
+			int $i = 0;
+			for( $eachFile in $finalList )
+			{
+				checkBox -label $eachFile -parent "fileList" ("devFile" + $i);
+				$i ++;
+			}
+			b2autoLocalDir "asset";
+		}
+		//-/
+	
+
+		// b2DoDownloadAssetFiles
+		//-
+		global proc b2DoDownloadAssetFiles ( string $srcPath )
+		{
+			string $targetPath = `textFieldButtonGrp -q -text setPathField`;
+			string $checkPathStr = `match "^[A-Z]:/" $targetPath`;
+			int $checkPathExists = `filetest -d $targetPath`;
+			string $fileList[];
+			string $mayaFileDown;
+			string $failedList[];
+			
+			// if( $checkPathStr == "" || $checkPathExists == 0)
+			if( $checkPathStr == "" )
+			{
+				confirmDialog -title "Warning" -message "파일을 저장할 디렉토리를 선택하세요";
+			}
+			else
+			{
+				if ($checkPathExists == 0)
+				b2makeFolder $targetPath;		
+				
+				string $checkedItems[] = `scrollLayout -q -childArray fileList`;
+				for( $eachItem in $checkedItems )
+				{
+					int $checked = `checkBox -q -value $eachItem`;
+					if( $checked == 1 )
+					{
+						string $label = `checkBox -q -label $eachItem`;
+						$fileList[size($fileList)] = $label;
+					}
+				}
+				if( size($fileList) )
+				{
+					for( $eachFile in $fileList )
+					{
+						string $srcFile = $srcPath + $eachFile;
+
+						string $buffer[] = `stringToStringArray $eachFile "."`;
+						string $newFile = $buffer[0] + "_checkedOut." + $buffer[1];
+						string $targetFile = $targetPath + $newFile;
+						string $matchMaya = `match "[.]ma" $targetFile`;
+						if( $matchMaya != "" )
+						{
+							$mayaFileDown = $targetFile;
+						}
+
+						int $fileTest = `filetest -f $targetFile`;
+						if( $fileTest )
+						{
+							confirmDialog -title "Warning" -message "이미 다운로드 받은 파일이 있습니다.";
+						}
+						else
+						{
+							string $result = `b2CopyFile $srcFile $targetFile`;
+							if( $result != 1 )
+							{
+								$failedList[size($failedList)] = $eachFile;
+							}
+					
+						}
+					}
+					if( size($failedList) != 0 )
+					{
+						deleteUI b2SubWin1;
+						confirmDialog -title "Info" -message "로컬 디렉토리로 복사하지 못한 파일이 있습니다.\n목록을 스크립트 에디터로 출력합니다.";
+						print "===========================================================================================\n";
+						print "                           다음 파일을 복사하지 못했습니다.\n";
+						print "===========================================================================================\n";
+						print $failedList;
+						print "===========================================================================================\n";
+					}
+					else
+					{
+						if( size($fileList) == 1 )
+						{
+							string $openChoice = `confirmDialog -title "Info" -message "파일을 로컬 드라이브로 모두 복사 했습니다.\n파일을 지금 여시겠습니까?"
+								-button "Yes" -button "No" -defaultButton "Yes" -cancelButton "No" -dismissString "No"`;
+							if ( $openChoice == "Yes" )
+							{
+								deleteUI b2SubWin1;
+								file -new -f;
+								file -open $mayaFileDown;
+							}
+							else
+							{
+								deleteUI b2SubWin1;
+							}
+						}
+						else
+						{
+							confirmDialog -title "Info" -message "파일을 로컬 드라이브로 모두 복사 했습니다." -button "confirm";
+							deleteUI b2SubWin1;
+						}
+					}
+		
+				}
+			}
+		}
+		//-/
+
+
+	// b2SaveAsset
+	//기능		- 어셋을 develop 혹은 release로 저장함.
+	//입력		- $submitType <-- develop/release, $compo <-- 어셋의 컴포넌트명, $version <-- 버전번호, $targetFile <-- 파일명(full path)
+	//작동절차	- 어셋의 root노드에 해당 컴포넌트 버전 어트리뷰트가 있는지 확인하고 없다면 생성 후 버전을 기록한 후 저장.
+	//결과		- 전달 받은 이름으로 파일을 저장하고 성공 여부를 반환
+	//-
+	global proc int b2SaveAsset( string $submitType, string $compo, int $version, string $targetFile)
+	//global proc int b2SaveAssetDevelop(string $targetFile)
+	{
+		print "b2SaveAsset...____________________________________________starting up procedure\n";
+		int $result;
+		string $versionString = b2Pad ($version, 3);
+		string $verPrefix;
+		if ($submitType == "dev")
+			$verPrefix = "v";
+		else if ($submitType == "rel")
+			$verPrefix = "r";
+			
+		string $b2VerAttr = "b2" + `capitalizeString $compo` + "Ver";
+		if (!`objExists ("|root." + $b2VerAttr)`) //루트노드에 컴포넌트 버전 어트리뷰트가 없다면 생성
+		{
+			addAttr -longName $b2VerAttr -dataType "string" "|root"; 
+		}
+		$versionString = $verPrefix + $versionString;//루트 노드에 버전 정보 기록
+		setAttr ("|root." + $b2VerAttr) -type "string" $versionString;
+		
+		string $targetPathDir = `dirname $targetFile`;
+		if (!`filetest -d $targetPathDir`)
+		{
+			sysFile -makeDir $targetPathDir;
+		}
+		file -rename $targetFile;//파일 저장
+		file -type mayaAscii;
+		if( $submitType == "dev" )
+		{
+			file -save -type mayaAscii;
+		}
+		else if( $submitType == "rel" )
+		{
+			editRenderLayerGlobals -currentRenderLayer "defaultRenderLayer";
+			string $type = "mayaAscii";
+			file -type $type;
+			select "|root";
+			if( `objExists "set"` )
+			{
+				select -add -ne "set";
+			}
+			if( `objExists "Sets"` )
+			{
+				select -add -ne "Sets";
+			}
+			file -force -options "v=0;" -type $type -preserveReferences -exportSelected $targetFile;
+		}
+		int $result1 = `filetest -e $targetFile`;
+		if ($result1 == 1)
+		{
+			$result = 1;
+		}
+		else
+			$result = 0;
+		print "b2SaveAsset...____________________________________________end of procedure\n";
+		return $result;
+	}
+	//-/
+
+	
+	// b2SubmitTextures
+	// 기능		- 텍스쳐 파일을 서버로 카피
+	// 입력		- $tab <-- 2 = 어셋 / 3 = 샷, $path <-- 기본 디렉토리,  $submitType <-- dev = develop / rel = release, $version <--- 사용 안함
+	// 작동절차	-	1. 씬에 존재하는 모든 텍스쳐의 경로를 확인한 후 문제가 있으면 멈추고 경고. 
+	//				2. 문제가 없으면 먀야 파일이 저장될 디렉토리에 tex 디렉토리를 만들고 모두 카피하고 씬 내부의 경로정보를 갱신.
+	// 출력		- 성공여부
+	//-
+	global proc int b2SubmitTextures(int $tab, string $path, string $submitType, int $version)
+	{
+		print "b2SubmitTextures.....................................................................................................procedure start\n";
+		//- 사용 안함. 추후 삭제
+		// string $type; //b2GetFileName 변수
+		// string $tag; //b2GetVersionFromFile 변수
+		// string $versionString;
+		// if ($submitType == "dev")
+		// {
+			// $type = "nextDevelop";
+			// $tag = "v";
+		// }
+		// else if ($submitType == "rel")
+		// {
+			// $type = "nextRelease";
+			// $tag = "r";
+		// }
+		// string $selectedItem[] = `b2GetCurrentlySelectedItem $tab 3`; //main UI에서 선택된 아이템 확인
+		// string $fileName = `b2GetFileName $tab $selectedItem[0] $selectedItem[1] $selectedItem[2] 0 $type 0`; //저장할 마야 파일명 생성
+		// string $dirPath = `dirname $fileName`;
+		// int $versionArray[] = `b2GetVersionFromFile $fileName $tag `; //파일명에서 버전 문자열 추출
+		// string $versionString = ($tag + b2Pad($versionArray[0], 3)); 
+		//-/
+		
+		string $texPath = $path + "/tex"; //텍스쳐를 카피해 넣을 디렉토리 경로
+		string $evalScene[] = `b2CheckTextureExistence`; //파일 텍스쳐 경로 오류 체크.
+		int $badNodeCount = `size($evalScene)`;
+
+		if ($badNodeCount != 0)
+		{
+			confirmDialog 
+				-message "경로가 잘못되었거나 비어있는 텍스쳐 노드가 있습니다.\n문제를 수정한 후 다시 시도 해주세요.\n노드의 리스트를 script editor로 출력합니다.";
+			print "\n\n\n";
+			print "===================================================================================\n";
+			print "다음 file Texture Node에 문제가 있습니다.\n";
+			print "===================================================================================\n";
+			print $evalScene;
+			print "===================================================================================\n";
+			print "b2SubmitTextures...____________________________________________end of procedure\n";
+			return 0;	
+		}
+		else
+		{
+			string $fileNode;
+			string $currentPathString;
+			string $currentFileName;
+			string $targetDir; //시퀀스 텍스쳐가 있는경우 텍스쳐가 들어있는 디렉토리 이름
+			// string $texDir = (`b2GetFileName $tab $selectedItem[0] $selectedItem[1] $selectedItem[2] 0 "folder" 0` + "tex/" + $versionString);
+			int $targetResult;
+			int $successCount = 0;
+			int $failCount = 0;
+			string $filePathGroupOrig[] = `b2TestAllFileNodes`; //모든 텍스쳐 파일을 경로별로 분류
+			string $removeString[] = { "emptyFileTexture", "missingPath" };
+			string $filePathGroup[] = stringArrayRemove($removeString, $filePathGroupOrig); //오류체크를 통과 했으므로 emptyFileTexture와 missingPath 그룹을 제거
+			int $filePathGroupSize = size($filePathGroup);	
+			
+			if (`filetest -d $texPath` == 0)
+			{
+				sysFile -makeDir $texPath;
+			}
+			for ($item in $filePathGroup) //
+			{
+				int $offset;
+				if (startsWith($item, "sq*")) //file path group이 sq로 시작하는 경우 다음 *로 연결되는 문자열부터 처리하기 위한 offset값 생성
+				{
+					$offset = 1;
+				}
+				else
+				{
+					$offset = 0;
+				}
+					string $pathGroupStringArray[] = stringToStringArray($item, "*"); //패스그룹 문자열을 *로 분해해서 array 처리
+					int $pathGroupStringArraySize = size($pathGroupStringArray);
+					string $pathString = $pathGroupStringArray[$offset]; //텍스쳐 경로 추출 (나머지는 텍스쳐 노드들임)
+					string $pathStringArray[] = stringToStringArray($pathString, "/");
+					int $pathStringArraySize = size($pathStringArray);
+					string $parentDir = $pathStringArray[$pathStringArraySize - 1];//패스의 최하위 디렉토리명 추출
+					$targetDir = $texPath + "/" + $parentDir + "/";//시퀀스 텍스쳐의 경우 상위 디렉토리를 포함해야 하므로 경로를 사용
+				if ($offset == 1) // 시퀀스 텍스쳐 경로 처리
+				{
+					if (`filetest -d $targetDir` == 0)
+					{
+						print "b2CopyTextureToLib...target directory does not exists\n";
+						print ("b2CopyTextureToLib...creating new directory " + $targetDir + "\n");							
+						int $targetDirResult = `sysFile -makeDir $targetDir`;
+						if ($targetDirResult == 1)
+						{
+							print "b2SubmitTextures...the directory created successfully\n";
+						}
+						else
+						{
+							print "b2SubmitTextures...creating directory failed\n";
+							return 0;
+							break;
+						}
+					}				
+					for ($i = 2; $i < $pathGroupStringArraySize; $i ++) //패스그룹에 포함된 시퀀스 텍스쳐를 타겟 디렉토리로 복사(sq*와 $path* 다음부터 처리해야 하므로 2부터 시작)
+					{
+						$fileNode = $pathGroupStringArray[$i];
+						$currentPathString = `getAttr($fileNode + ".fileTextureName")`;
+						$sourceDir = (`dirname $currentPathString` + "/");
+						$currentFileName = basename ($currentPathString, "");
+						string $sourceDirContents[] = `getFileList -folder $sourceDir -filespec "*.*"`;
+						string $removeItem[] = {".mayaSwatches"};
+						string $seqFiles[] = stringArrayRemove ($removeItem, $sourceDirContents);
+						for ($eachFile in $seqFiles)
+						{
+							string $sourceFile = $sourceDir + $eachFile;
+							string $targetFile = $targetDir + $eachFile;
+							int $existence = `filetest -f $targetFile`;
+							if ($existence == 0)
+							{													
+								int $targetFileResult = `sysFile -cp $targetFile $sourceFile`;
+								if ($targetFileResult == 1)
+								{
+									setAttr -type "string" ($fileNode + ".fileTextureName") ($targetDir + $currentFileName);
+								}
+								else
+								{
+									return 0;
+									break;
+								}
+							}
+							else
+							{
+								setAttr -type "string" ($fileNode + ".fileTextureName") ($targetDir + $currentFileName);//텍스쳐를 복사한 후 해당 file node의 경로정보 수정			
+							}
+						}
+					}
+				}
+				else //시퀀스가 아닌 경우 처리
+				{
+					for ($j = 1; $j < $pathGroupStringArraySize; $j ++) //처음 $path* 다음부터 처리해야 하므로 1부터 시작
+					{
+						$fileNode = $pathGroupStringArray[$j];
+						string $filePathAttrName;
+						if (`nodeType $fileNode` == "mentalrayIblShape")
+						{
+							$filePathAttrName = $fileNode + ".texture";
+							$currentPathString = `getAttr $filePathAttrName`;
+						}
+						else
+						{
+							$filePathAttrName = $fileNode + ".fileTextureName";
+							$currentPathString = `getAttr $filePathAttrName`;
+						}
+						$currentFileName = basename ($currentPathString, "");
+						$targetFile = $texPath + "/" + $currentFileName;
+						if (`filetest -f $targetFile` == 0)
+						{
+							$targetResult = `sysFile -copy $targetFile $currentPathString`;
+							if ($targetResult == 1)
+							{
+								setAttr -type "string" $filePathAttrName $targetFile;
+							}
+							else
+							{
+								return 0;
+								break;
+							}
+						}
+						else
+						{
+							setAttr -type "string" $filePathAttrName $targetFile;
+						}
+					}
+				}
+			}
+			string $furDescEntry[] = `b2FurAttrMapList`; //fur attribute map 리스트 작성
+			for ($entry in $furDescEntry) //fur attribute map 처리
+			{
+				string $furAttrMapPath = `getAttr $entry`;
+				$currentFileName = basename ($furAttrMapPath, "");
+				$targetFile = $texPath + "/" + $currentFileName;
+				if (`filetest -f $targetFile` == 0)
+				{
+					$targetResult = `sysFile -copy $targetFile $furAttrMapPath`;
+					if ($targetResult == 1)
+					{
+						setAttr -type "string" $entry $targetFile;
+					}
+					else
+					{
+						return 0;
+						break;
+					}
+				}
+			}
+		}
+		return 1;
+	}
+	//-/
+
+	
+	// b2SubmitCaches
+	// 기능		- Copy cacheFile to Lib 옵션 실행
+	// 입력		- $tab <-- 3 = 샷 / 2 =어셋, $path <-- 기본 디렉토리, $submitType <-- dev = develop / rel = rerelease, $version <-- 사용 안함 
+	// 작동절차	-	1. 씬에 존재하는 모든 fileCache 노드에 대한 에러체크 후 문제가 있으면 멈추고 에러 노드 리스트를 출력
+	//				2. 문제가 없다면 마야 파일이 저장될 디렉토리에 cache 디렉토리를 생성하고 모든 캐쉬를 복사한 후 씬 내부의 경로 정보를 갱신.
+	// 출력		- 성공 여부
+	//-
+	global proc int b2SubmitCaches(int $tab, string $path, string $submitType, int $version)
+	{
+		print "b2CopyCacheToLib...____________________________________________starting up procedure\n";		
+		string $evalScene[] = `b2CheckCacheExistence`; //씬에 존재하는 모든 캐쉬노드에 대한 에러 체크	
+		string $cachePath = $path + "/cache"; //캐쉬를 저장할 디렉토리 패스 (마야 파일과 같은 디렉토리에 cache 폴더)
+
+		if (size($evalScene) > 0)
+		{
+			confirmDialog -title "Warning!" -message "경로가 잘못 되었거나 파일이 존재하지 않는 캐쉬 노드가 있습니다.\n문제가 있는 노드의 리스트틀 script editor에 출력합니다.";
+			print "=====================================================================================================================================\n";
+			print "다음 캐쉬노드들에 문제가 있습니다. 현재 프로그램의 기능상의 한계로 문제가 있으나 체크되지 않은 노드가 있을 수도 있습니다.\n";
+			print "=====================================================================================================================================\n";
+			print $evalScene;
+			print "=====================================================================================================================================\n";
+			return 0;
+		}
+		else
+		{
+			string $currentPath;
+			string $currentFileName;
+
+			string $cachePathGroupOrig[] = `b2TestAllCacheNodes`;
+			string $removeString[] = { "missingPath", "emptyCacheNode" };
+			string $cachePathGroup[] = stringArrayRemove($removeString, $cachePathGroupOrig);//모든 캐쉬의 패스그룹 작성
+			int $cachePathGroupSize = size($cachePathGroup);
+			string $failedFiles[];
+			string $failedCacheNodes[];
+			
+			if (`filetest -d $cachePath` == 0) //캐쉬 디렉토리 생성
+			{
+				sysFile -makeDir $cachePath;
+			}
+			for ($item in $cachePathGroup) 
+			{
+				string $buffer[] = stringToStringArray($item, "*"); //패스그룹을 *문자를 이용해서 array로 분해
+				for ($i = 1; $i < size($buffer); $i ++) //$path를 제외한 각 캐쉬노드에 대한 처리 시작
+				{
+					$currentPath = $buffer[0];
+					$currentPath = `fromNativePath($currentPath)`;
+					$currentFileName = `getAttr ($buffer[$i] + ".cacheName")`;
+					string $targetPath = $cachePath + "/" + $currentFileName; //캐쉬 디렉토리에 생성할 각 캐쉬별 폴더 이름
+					int $failedCacheNodesSize = size($failedCacheNodes);
+					if(`filetest -d $targetPath` == 0)
+					{
+						sysFile -makeDir $targetPath; //각 캐쉬노드별 디렉토리 생성
+					}
+					string $xmlFileList[] = `getFileList -folder ($currentPath + "/") -filespec ($currentFileName + "*.xml")`; //캐쉬 xml파일 목록
+					string $mcFileList[] = `getFileList -folder ($currentPath + "/") -filespec ($currentFileName + "*.mc")`; //캐쉬 mc파일 목록
+					string $sourceFileList[] = stringArrayCatenate ($xmlFileList, $mcFileList); //두 목록을 하나로 통합
+					int $sourceFileListSize = size($sourceFileList);
+					int $copiedFileCount = 0;
+					for ($file in $sourceFileList) //목록의 내용을 복사
+					{
+						int $failedFilesSize = size($failedFiles);
+						string $sourceFile = $currentPath + "/" + $file;
+						string $targetFile = $targetPath + "/" + $file;
+						if (`filetest -f $targetFile` == 0)
+						{
+							int $cpResult = `sysFile -copy $targetFile $sourceFile`;
+							if ($cpResult == 1)
+							{
+								$copiedFileCount ++;
+							}
+							else
+							{
+								$failedFiles[$failedFilesSize] = $sourceFile;
+							}			
+						}
+						else
+						{
+							$copiedFileCount ++;
+						}
+					}
+					if ($copiedFileCount == $sourceFileListSize)
+					{
+						setAttr -type "string" ($buffer[$i] + ".cachePath") $targetPath; //캐쉬노드의 정보 수정
+					}
+					else
+					{
+						$failedCacheNodes[$failedCacheNodesSize] = $buffer[$i];
+					}
+				}
+			}
+			if (size($failedCacheNodes) || size($failedFiles))
+			{
+				confirmDialog -title "Warning!" -message "제대로 복사되지 않은 캐쉬파일이 있습니다.\n해당 파일과 캐쉬노드의 리스트를 script editor로 출력합니다.";
+				print "=====================================================================================================================================\n";
+				print "다음 파일들을 복사하지 못했습니다.\n";
+				print "=====================================================================================================================================\n";
+				print $failedFiles;
+				print "=====================================================================================================================================\n";
+				print "복사하지 못한 파일들은 다음 캐쉬노드들과 관련된 것입니다.\n";
+				print "=====================================================================================================================================\n";
+				print $failedCacheNodes;
+				print "=====================================================================================================================================\n";
+				print "b2CopyCacheToLib...____________________________________________starting up procedure\n";
+				return 0;
+			}
+			else
+			{
+				print "b2CopyCacheToLib...____________________________________________starting up procedure\n";
+				return 1;
+			}
+		}
+	}
+	//-/
+
+
+	// b2SeparateLod
+	// 기능		- LOD02 분리 저장
+	// 입력		- $tab <-- 3 = 샷 / 2 =어셋, $path <-- 기본 디렉토리, $submitType <-- dev = develop / rel = rerelease, $trigger 
+	// 작동절차	- 1. $trigger 값이 1이라면 정수 2를 리턴(후행 작업)
+	//			  2. $trigger 값이 2라면 어셋 하이어라키에서 Main.lodVis 어트리뷰트를 1로 변경(lod02 visible)
+	//			  3. lod03_GRP 삭제.
+	//			  4. lod02파일 저장
+	//			  5. lod02_GRP, facial_GRP, addSystem_GRP 삭제
+	//			  6. lod01파일 저장 후 정수 1을 반환
+	// 출력		- 0: 실패, 1:성공, 2:후행작업
+	//-
+	global proc int b2SeparateLod(int $tab, string $path, string $submitType, int $trigger)
+	{
+		print "Seprating lod files...\n";
+		if ($trigger == 1)
+		{
+			return 2;
+		}
+		else
+		{
+			string $userName = `getenv userName`;
+			string $origSceneName = `file -q -sceneName`;
+			string $baseName = `basenameEx $origSceneName`;
+			string $lod02FileName = `substituteAllString $baseName "lod03_" ""`;
+			$lod02FileName = `substituteAllString $lod02FileName "rig_" "rig_lod02_"`;
+			$lod02FileName = $path + "/" + $lod02FileName + ".ma";;
+			string $lod01FileName = `substituteAllString $lod02FileName "rig_lod02_" "rig_lod01_"`;			
+			string $lod03Grp[] = `ls lod03_GRP`;
+			string $lod02Grp[] = `ls lod02_GRP`;
+			string $lod01Grp[] = `ls lod01_GRP`;
+			string $facialGrp[] = `ls facial_grp`;
+			string $addSystemGrp[] = `ls addSystem_GRP`;
+			string $addSystem[] = `ls addSystem`;
+			string $skinDummyGrp[] = `ls skinDummy_G`;
+			
+			// lod03_GRP을 지우고 lod02버전 저장.
+			if( size($lod03Grp) && size($lod02Grp) )
+			{
+				if (`objExists Sub`)
+				{
+					setAttr Sub.lodVis 1;
+					string $lod03MeshLst[] = `listRelatives -allDescendents -type "mesh" $lod03Grp`;
+					for( $eachLod03Mesh in $lod03MeshLst ) //lod03_GRP의 모든 mesh에 연결된 blendShape을 지우고 mesh도 삭제
+					{
+						string $bsNode[] = `listConnections -s 1 -d 1 -type "blendShape" $eachLod03Mesh`;
+						for( $eachBs in $bsNode )
+						{
+							if( `objExists $eachBs` )
+							{
+								delete $eachBs;
+							}
+						}
+						delete $eachLod03Mesh;
+					}
+					file -rename $lod02FileName;
+					if (catch(`file -type mayaAscii -save`))
+					{
+						warning "lod02 파일을 저장하지 못했습니다\n";
+						file -rename $origSceneName;
+						return 0;
+					}
+					else					
+					{
+						file -rename $origSceneName;
+					}
+				}
+			}
+			
+			//lod02_GRP과 기타 불필요한 그룹을 지운 뒤 lod01버전 저장.
+			if( size($lod02Grp) && size($lod01Grp) )
+			{
+				setAttr Sub.lodVis 0;
+				string $lod02MeshLst[] = `listRelatives -allDescendents -type "mesh" $lod02Grp`;
+				for( $eachLod02Mesh in $lod02MeshLst )
+				{
+					delete $eachLod02Mesh;
+				
+				}
+//				delete $facialGrp;
+				delete $addSystemGrp;
+				delete $addSystem;
+				delete $skinDummyGrp;
+				file -rename $lod01FileName;
+				if (catch(`file -type mayaAscii -save`))
+				{
+					warning "lod01 파일을 저장하지 못했습니다\n";
+					return 0;
+				}
+				else
+				{
+					return 1;
+				}
+			}
+		}
+	}
+	//-/
+
+	
+	// b2UpdSceneAsset
+	// 기능		- b2UpdSceneAssetUI에서 업데이트 할 어셋의 목록을 받아 최신 버전으로 레퍼런스를 교체
+	// 			- 어셋이 rig라면 무조건 lod02로 업데이트. 
+	//-
+	global proc b2UpdSceneAsset()
+	{
+		print "b2UpdSceneAsset............................................................................\n";
+		string $currSceneName = `file -q -sceneName`;
+		string $chkBoxLst[] = `lsUI -type "checkBox"`;
+		string $checkedItemLst[];//체크된 어셋 목록
+		string $astNamespace[];
+		string $refNode[];
+		string $newAstFile[];			
+
+		// UI에서 체크된 항목을 찾아 업데이트할 어셋 목록 작성		
+		for( $eachBox in $chkBoxLst )
+		{
+			string $match = `match "astChkBox_" $eachBox`;
+			if( size($match) && `checkBox -q -value $eachBox` == 1 )
+			{
+				$checkedItemLst[size($checkedItemLst)] = $eachBox;
+			}
+		}
+		
+		// 체크박스 이름에서 prefix와 번호를 제거하여 얻은 어셋 이름으로 최신버전 파일을 확인.
+		// 애니용 rig 파일이면 lod02로 교체(lod02가 없다면 lod03)
+		for( $i = 0; $i < size($checkedItemLst); $i++ )
+		{
+			$astNamespace[$i] = `substituteAllString $checkedItemLst[$i] "astChkBox_" ""`;
+			string $orderNum = `match "_[0-9]{3}" $checkedItemLst[$i]`;
+			string $astName = `substituteAllString $astNamespace[$i] $orderNum ""`;
+			string $refFile = `referenceQuery -filename ($astNamespace[$i] + ":root")`;
+				$refFileBasename = `basenameEx $refFile`;
+
+			string $filenameSplit[] = `stringToStringArray $refFileBasename "_"`;
+			$refNode[size($refNode)] = `referenceQuery -rfn $refFile`;
+			string $astType = $filenameSplit[0];
+			string $astName = $filenameSplit[1];
+			string $astCompo = $filenameSplit[2];
+			string $tempFileName = `b2GetFileName 2 $astType $astName $astCompo 0 "release" 0`;
+			int $relCheck = `filetest -f $tempFileName`;
+			if( !$relCheck )
+			{
+				$tempFileName = `b2GetFileName 2 $astType $astName $astCompo 0 "develop" 0`;
+			}
+
+			if( $astCompo != "rig" )
+			{
+				$newAstFile[size($newAstFile)] = $tempFileName;
+			}
+			else
+			{
+				string $matchWord = `match "_lod[0-9]{2}_" $tempFileName`;
+				string $newFileName = `substituteAllString $tempFileName $matchWord "_lod02_"`;
+				int $fileCheck = `filetest -f $newFileName`;
+				if( $fileCheck )
+				{
+					$newAstFile[size($newAstFile)] = $newFileName;
+				}
+				else
+				{
+					$newAstFile[size($newAstFile)] = $tempFileName;
+				}
+			}
+		}
+		for( $j = 0; $j < size($refNode); $j ++ )
+		{
+			file -prompt false -type "mayaAscii" -loadReference $refNode[$j] $newAstFile[$j];
+		}
+		eval "b2UpdSceneAssetUI";
+	}
+	
+	//-/
+
+	
+	// b2ReplaceSceneAssetCallback
+	// UI에서 선택한 내용으로 입력값을 구성하여 b2ReplaceSceneAsset을 실행.
+	//-
+	global proc b2ReplaceSceneAssetCallback()
+	{
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+		string $replacementAstName = $selItem[1]; // 새로 불러들일 어셋 이름
+		string $filePathDir = `textFieldButtonGrp -q -text "astFileLocField"`;
+		string $filename = `textFieldGrp -q -text replacementFileField`;
+		string $filePath = $filePathDir + $filename; //새로 불러들일 어셋의 full path
+		string $replacementAstCompo = $selItem[2]; // 새로 불러들일 어셋의 component
+		string $chkBoxLst[] = `lsUI -type "checkBox"`;
+		string $selBoxLst[];
+		int $result;
+		
+		// 모든 체크박스 UI중 어셋교체와 관련된 박스만 골라내기
+		for( $eachBox in $chkBoxLst )
+		{
+			string $match = `match "astChkBox_" $eachBox`;
+			int $stat = `checkBox -q -value $eachBox`;
+			if( size($match) && $stat == 1 )
+			{
+				$selBoxLst[size($selBoxLst)] = $eachBox;
+			}
+		}
+		for( $eachSel in $selBoxLst )
+		{
+			// 체크박스 이름에서 어셋 컴포넌트를 추출하여 새로운 어셋과 비교한 뒤 
+			// 서로 다르다면 확인창을 표시하고 같다면 b2ReplaceSceneAsset 실행.	
+			string $tmpName = `substituteAllString $eachSel "astChkBox_" ""`;
+			string $buffer[] = `stringToStringArray $tmpName "_"`;
+			string $astCompo = $buffer[0];	
+			string $astNamespace = $buffer[1] + "_" + $buffer[2];
+			string $refNode[] = `ls -type "reference" ( $astNamespace + "*" )`;
+
+			if( $replacementAstCompo != $astCompo )
+			{
+				string $message1 = "기존 어셋 " + $astNamespace + "과 " + $replacementAstName + "은(는) 서로 다른 컴포넌트입니다.\n";
+				string $message2 = "컴포넌트가 다를 경우 애니메이션이 소실되거나 다른 문제가 생길 수 있습니다.\n정말로 교체 하시겠습니까?";
+				string $message = $message1 + $message2;
+				string $confirm = `confirmDialog -title "Warnning!" -message $message
+					-button "Yes" -button "No" -defaultButton "No" -cancelButton "No" -dismissString "No"`;
+				if( $confirm == "Yes" )
+				{
+					$result = `b2ReplaceSceneAsset $replacementAstName $filePath $refNode[0]`;
+					if( $result == 0 )
+					{	
+						string $message3 = "기존 어셋 " + $astNamespace + "를 " + $replacementAstName + "로 교체하지 못했습니다.";
+						confirmDialog -title "Error!" -message $message3;
+					}
+				}
+				else
+				{
+					continue;
+				}
+			}
+			else
+			{
+				$result = `b2ReplaceSceneAsset $replacementAstName $filePath $refNode[0]`;
+				if( $result == 0 )
+				{	
+					string $message4 = "기존 어셋 " + $astNamespace + "를 " + $replacementAstName + "로 교체하지 못했습니다.";
+					confirmDialog -title "Error!" -message $message4;
+				}
+			}
+		}
+		deleteUI "b2SubWin1";
+	}
+	//-/
+	
+	
+	// b2ReplaceSceneAsset
+	//-
+	global proc int b2ReplaceSceneAsset( string $newAstName, string $newAstFile, string $oldAstRefNode )
+	{
+		print "b2ReplaceSceneAsset................................................\n";
+		string $oldFilePath = `referenceQuery -wcn -filename $oldAstRefNode`;
+		string $oldAstNamespace = `referenceQuery -namespace $oldAstRefNode`;
+			$oldAstNamespace = `substituteAllString $oldAstNamespace ":" ""`;
+		string $buffer[] = `stringToStringArray $oldAstNamespace "_"`;
+		string $newAstNamespace = $newAstName + "_" + $buffer[1];
+		string $newAstRefNode = $newAstNamespace + "RN";
+		string $replaceTask;
+		// file -unloadReference $refNode $oldFile;
+		print "$oldFilePath =\n";
+		print $oldFilePath;
+		print "\n";
+		print "$newAstFile =\n";
+		print $newAstFile;
+		print "\n";
+		if( $oldFilePath != $newAstFile )
+		{
+			$replaceTask = `file -loadReference $oldAstRefNode -type "mayaAscii" -options "v=0;" $newAstFile`;
+			print "$replaceTask =\n";
+			print $replaceTask;
+			print "\n";
+			if( $replaceTask == $newAstFile )
+			{
+				namespace -set ":";
+				if( $oldAstNamespace != $newAstNamespace )
+				{
+					namespace -rename $oldAstNamespace $newAstNamespace;
+					lockNode -lock off $oldAstRefNode;
+					rename $oldAstRefNode $newAstRefNode;
+					lockNode -lock on $newAstRefNode;
+				}
+				return 1;
+			}
+			else
+			{
+				return 0;
+			}
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	//-/
+	
+	
+//-/
+
+
+//- 어셋 develop 관련 UI 및 실행
+
+	// b2SaveAssetDevelopUI 
+	// 기능		- 새 어셋 디벨롭 버전 세이브 윈도우
+	// 입력		- 없음
+	// 작동절차	- 
+	// 출력		- 없음
+	//-
+	global proc b2SaveAssetDevelopUI()
+	{
+		print "b2SaveAssetDevelopUI..._________________________________________________________starting up procedure\n";
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+		int $depth = `b2GetDepth $selItem[0] $selItem[1] $selItem[2]`;
+		string $val1 = $selItem[0];
+		string $val2 = $selItem[1];
+		string $val3 = $selItem[2];
+		
+		if ($depth != 3)
+		{
+			confirmDialog -title "Error!"
+				-message "컴포넌트를 선택하세요!"
+				-button "OK";
+		}	
+		else
+		{
+			if( `window -exists b2SubWin1`)
+			{
+				deleteUI b2SubWin1;
+			}
+			string $tempDir = "c:/b2PipelineSnapshot/";
+			int $testValue = `filetest -d $tempDir`;
+			if ($testValue == 0)
+			{
+				sysFile -makeDir $tempDir;
+			}
+			string $existingFiles[] = `getFileList -folder $tempDir -filespec "*.jpg"`;
+			if (size($existingFiles) != 0)
+			{
+				for($item in $existingFiles)
+				{
+					string $targetName = ($tempDir + "/" + $item);
+					sysFile -delete $targetName;
+				}
+			}	
+			if (`window -exists b2SubWin1`)
+			{
+				deleteUI b2SubWin1;
+			}
+			string $b2SubWin1 = `window -t "Save New Develop" -sizeable false b2SubWin1`;
+				string $subWinRootUI = `columnLayout -columnAttach both 5 -columnWidth 618 -rowSpacing 5`;
+					string $snapshotLayout = `columnLayout -columnAttach both 0 -columnWidth 608 -rowSpacing 5`;
+						separator;
+						string $thumbnailArea = `scrollLayout -height 280 -scrollPage "right" thumbnailArea`;
+							string $imageSlot = `rowLayout
+								-numberOfColumns 6
+								-columnWidth 1 326
+								-columnWidth 2 326
+								-columnWidth 3 326
+								-columnWidth 4 326
+								-columnWidth 5 326
+								-columnWidth 6 326
+							imageSlot`;
+					setParent $snapshotLayout;
+						string $buttonLayout = `rowLayout -numberOfColumns 4 -columnWidth4 150 150 150 150`;
+							string $takeSnapshotButton = `button -label "Take Snapshot" -width 150 -command "b2TakeSnapshot"`;
+							string $getFromRenderButton = `button -label "Get From Renderview" -width 150`;
+							string $loadFromDiskButton = `button -label "Load Image" -width 150`;
+							string $deleteImageButton = `button -label "Delete Image" -width 150 -command "b2DelSnapshotFromUI"`;
+				setParent $subWinRootUI;
+					string $devInfoLayout = `columnLayout -columnAttach left 0 -columnWidth 608 -columnAlign left -rowSpacing 5`;
+						separator -width 608;
+						$form = `formLayout -width 608 -height 190 -numberOfDivisions 100`;
+							string $artistCommentTitle = `text -font boldLabelFont -label "Artist Comment :"`;
+							string $defaultText1 = "작업 내용을 구체적으로 기록해 주세요.\n대쉬문자( - )는 사용하면 안됩니다.\n";
+							string $defaultText2 = "● \n● \n● \n● \n● \n● \n";
+							string $artistCommentField = `scrollField -width 395 -height 160 -wordWrap true -text ($defaultText1 + $defaultText2) b2AssetCommentField`;
+							string $preTaskLayout = `frameLayout -label "Optional Jobs" -width 200 -height 160`;
+								scrollLayout -width 200 -height 160;
+									columnLayout -rowSpacing 2;
+										string $textureButton = `checkBox -label "Submit Textures" optCheck1`;
+										string $cacheButton = `checkBox	-label "Submit Caches" optCheck2`;
+										text -font boldLabelFont -bgc 1 0 0 -label "아래 항목들은 아직 작동 안해요! ";								
+										string $checkVertices = `checkBox -label "Check Vertices" optCheck3`;
+										string $checkTransform = `checkBox -label "Check Transform" optCheck4`;								
+										string $displayLayerButton = `checkBox -label "Delete Display Layers" optCheck5`;
+										string $renderLayerButton = `checkBox -label "Delete Render Layers" optCheck6`;
+						setParent $form;
+						formLayout -edit
+							-attachForm $artistCommentTitle "top" 5
+							-attachForm $artistCommentTitle "left" 5
+							-attachControl $artistCommentField "top" 5 $artistCommentTitle
+							-attachForm $artistCommentField "left" 5
+							-attachForm $preTaskLayout "right" 1
+							-attachControl $preTaskLayout "top" 5 $artistCommentTitle
+						$form;
+				setParent $subWinRootUI;
+					separator -width 608;
+					rowLayout -numberOfColumns 3 -columnWidth3 303 150 151;
+						text -label "";
+						button -label "Save" -width 150 -command "b2DoSaveAssetDevelop dev";
+						button -label "Cancel" -width 150 -command "deleteUI b2SubWin1";
+			showWindow $b2SubWin1;
+		}
+		print "b2SaveAssetDevelopUI..._________________________________________________________procedure is finished\n";		
+	}
+	//-/
+
+
+	// b2DoSaveAssetDevelop
+	// 기능		- 새 어셋 디벨롭 버전 세이브 실행
+	// 입력		- $key <-- release와 동반되는 명령인지 확인/ 그렇다면 UI를 release쪽에서 닫으므로 여기서는 닫지 않음.
+	// 작동절차	-	1. 루트노드의 유무 확인
+	//				2. 실행 해야 할 옵션 작업 리스트를 만들어 순차적으로 실행.
+	//			    3. 만일 옵션 작업이 b2PipelineInit.mel에 있는 skipOptJob 리스트에 포함되어 있다면 체크섬만 증가시키고 건너뜀.
+	//				4. 저장될 버전으로 scene name을 갱신한 후 develop 버전 저장, 스냅샷 전송, 히스토리 기록을 순차적으로 실행
+	//				5. overwrite를 막기 위해 원래 이름으로  scene name을 돌린다.
+	// 출력		- 없음
+	//-
+	global proc b2DoSaveAssetDevelop( string $key )
+	{
+		print "b2DoSaveAssetDevelop..._________________________________________________________starting up procedure\n";
+		string $userName = `optionVar -q "userName"`;
+		string $origFileName = `file -q -sceneName`;
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+		string $targetFile = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "nextDevelop" 0`;
+		string $historyFile = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "historyFile" 0`;
+		string $comment = `scrollField -q -tx b2AssetCommentField`;
+		string $basename = `basenameEx $targetFile`;
+		string $dirPath = `dirname $targetFile`;
+		int $version[] = `b2GetVersionFromFile $basename "v"`;
+		string $skipJob[] = `b2SkipOptJob`; //develop에서 건너뛰어야 할 optional job
+		
+		int $checkRootNode = `b2CheckRootNode dev`; //루트노드의 존재여부 확인
+		if ($checkRootNode == 1)
+		{
+			//- 체크된 옵션 리스트 작성 및 실행
+			string $checkedOptionList[] = `b2CheckOptJobList`; //UI에 체크된 optional job의 목록을 확인
+			int $optJobCount = `size($checkedOptionList)`;		
+			int $optJobChecksum = 0;
+			for ($job in $checkedOptionList)
+			{
+				int $skip = stringArrayContains( $job, $skipJob); //b2PipelineInit.mel에 포함된 skipOptJobList를 확인
+				if ($skip == 1)
+				{
+					$optJobChecksum ++;
+					continue;
+				}
+				else
+				{
+					string $jobCommand = ($job + " 2 \"" + $dirPath + "\" dev " + $version[0]);
+					int $optResult = `eval($jobCommand)`;
+					if ($optResult == 1)
+					{
+						$optJobChecksum ++;
+					}
+					else
+					{
+						print "\n\n";
+						print "=====================================================================================================\n";
+						print "다음 옵션 작업을 실행하는 과정에서 문제가 생겼습니다.\n";
+						print "=====================================================================================================\n\n";
+						print ($job + "\n\n");
+						print "=====================================================================================================\n\n";
+					}
+				}
+			}
+			//-/
+			
+			if ($optJobChecksum != $optJobCount)
+			{
+				confirmDialog -message "파일을 서버에 저장하기 전에 실행한 옵션 작업이 제대로 수행되지 않았습니다.\n문제가 생긴 작업의 리스트를 스크립트 에디터로 출력합니다.";
+			}
+			else
+			{
+			//- 저장 실행
+				setNamedPanelLayout "Four View";
+				b2CloseAllWin;
+				b2ResetViewportRender;
+				string $checkTexture[] = `b2CheckTextureExistence`;
+				if (`size($checkTexture)`==0)
+				{
+					int $result1 = `b2SaveAsset "dev" $selItem[2] $version[0] $targetFile`;
+					if ($result1 != 1)
+					{
+						confirmDialog -title "Error" -message "어셋을 저장하지 못했습니다!";
+					}
+					else
+					{
+						int $result2 = `b2CopySnapshot "ast" $targetFile`;
+						if ($result2 != 1)
+						{
+							confirmDialog -title "Error!" -message "스냅샷을 저장하지 못했습니다!";
+						}
+						else
+						{
+							int $result3 = `b2AddCommentToHistory $historyFile "develop" $version[0] $userName $comment`;
+							if ($result1 == 1)
+							{
+								if ( $key != "rel" )
+								{
+									deleteUI b2SubWin1;
+									string $confirmation = `confirmDialog -title "Info" -message "develop 버전이 무사히 서버에 저장 되었습니다.\n현재 열려있는 씬을 닫으시겠습니까?"
+										-button "Yes"
+										-button "No"`;
+									if ($confirmation == "Yes")
+										file -force -newFile;
+									else
+									{
+										file -rename $origFileName;
+										confirmDialog -title "Warning" -message "서버에 저장된 파일에 겹쳐쓰기 되는 위험을 피하기 위해 저장 전의 파일명으로 되돌립니다.";
+									}								
+								}
+								else
+								{
+									confirmDialog -title "Info" -message "develop 버전이 무사히 서버에 저장 되었습니다.";
+								}
+
+
+							}
+							else
+							{
+								confirmDialog -title "Error" -message "히스토리 파일을 갱신하지 못했습니다!";
+							}
+						}
+					}
+					b2UpdHistory "ast";
+				}
+				else
+				{
+					confirmDialog 
+						-message "경로가 잘못되었거나 비어있는 텍스쳐 노드가 있습니다.\n문제를 수정한 후 다시 시도 해주세요.\n노드의 리스트를 script editor로 출력합니다.";
+					print "\n\n\n";
+					print "===================================================================================\n";
+					print "다음 file Texture Node에 문제가 있습니다.\n";
+					print "===================================================================================\n";
+					print $checkTexture;
+					print "===================================================================================\n";
+				}
+			//-/
+			}
+		}
+		print "b2DoSaveAssetDevelop..._________________________________________________________procedure is finished\n";	
+	}
+	//-/
+
+//-/
+	
+
+//- 어셋 release 관련 UI 및 실행
+
+	// b2SaveAssetReleaseUI 
+	// 기능		- 새 어셋 릴리즈 버전 세이브 윈도우 (기본적으로는 developUI와 동일함)
+	// 입력		- 없음
+	// 작동절차	- 어셋을 릴리즈 하기 위한 UI를 띄우고 스냅샷과 유저 코멘트를 입력받는다. 릴리즈 저장 전/후에 실행할 옵션 작업의 리스트도 제공. 
+	// 출력		- 없음
+	//-
+	global proc b2SaveAssetReleaseUI()
+	{
+		print "b2SaveAssetReleaseUI..._________________________________________________________starting up procedure\n";
+		string $currentSelection[] = `b2GetCurrentlySelectedItem 2 3`;
+		int $depth = `b2GetDepth $currentSelection[0] $currentSelection[1] $currentSelection[2]`;
+		string $val1 = $currentSelection[0];
+		string $val2 = $currentSelection[1];
+		string $val3 = $currentSelection[2];
+		if ($depth != 3)
+		{
+			confirmDialog -title "Error!"
+				-message "컴포넌트를 선택하세요!"
+				-button "OK";
+		}	
+		else
+		{
+			if( `window -exists b2SubWin1`)
+			{
+				deleteUI b2SubWin1;
+			}
+			string $tempDir = "c:/b2PipelineSnapshot/";
+			int $testValue = `filetest -d $tempDir`;
+			if ($testValue == 0)
+			{
+				sysFile -makeDir $tempDir;
+			}
+			string $existingFiles[] = `getFileList -folder $tempDir -filespec "*.jpg"`;
+			if (size($existingFiles) != 0)
+			{
+				for($item in $existingFiles)
+				{
+					string $targetName = ($tempDir + "/" + $item);
+					sysFile -delete $targetName;
+				}
+			}	
+			string $doCommand = ("b2DoSaveAssetRelease 2 " + "\"" + $val1 + "\"" + " " + "\"" + $val2 + "\"" + " " + "\"" + $val3 + "\"");
+			if (`window -exists b2SubWin1`)
+			{
+				deleteUI b2SubWin1;
+			}
+			string $b2SubWin1 = `window -t "Save New Release" -sizeable false b2SubWin1`;
+				string $subWinRootUI = `columnLayout -columnAttach both 5 -columnWidth 618 -rowSpacing 5`;
+					string $snapshotLayout = `columnLayout -columnAttach both 0 -columnWidth 608 -rowSpacing 5`;
+						separator;
+						string $thumbnailArea = `scrollLayout -height 280 -scrollPage "right" thumbnailArea`;
+							string $imageSlot = `rowLayout
+								-numberOfColumns 6
+								-columnWidth 1 326
+								-columnWidth 2 326
+								-columnWidth 3 326
+								-columnWidth 4 326
+								-columnWidth 5 326
+								-columnWidth 6 326
+							imageSlot`;
+					setParent $snapshotLayout;
+						string $buttonLayout = `rowLayout -numberOfColumns 4 -columnWidth4 150 150 150 150`;
+							string $takeSnapshotButton = `button -label "Take Snapshot" -width 150 -command "b2TakeSnapshot"`;
+							string $getFromRenderButton = `button -label "Get From Renderview" -width 150`;
+							string $loadFromDiskButton = `button -label "Load Image" -width 150`;
+							string $deleteImageButton = `button -label "Delete Image" -width 150 -command "b2DelSnapshotFromUI"`;
+				setParent $subWinRootUI;
+					string $devInfoLayout = `columnLayout -columnAttach left 0 -columnWidth 608 -columnAlign left -rowSpacing 5`;
+						separator -width 608;
+						$form = `formLayout -width 608 -height 190 -numberOfDivisions 100`;
+							string $artistCommentTitle = `text -font boldLabelFont -label "Artist Comment :"`;
+							string $defaultText1 = "작업 내용을 구체적으로 기록해 주세요.\n대쉬문자( - )는 사용하면 안됩니다.\n";
+							string $defaultText2 = "● \n● \n● \n● \n● \n● \n";
+							string $artistCommentField = `scrollField -width 395 -height 160 -wordWrap true -text ($defaultText1 + $defaultText2) b2AssetCommentField`;
+							string $preTaskLayout = `frameLayout -label "Optional Jobs" -width 200 -height 160`;
+								scrollLayout -width 200 -height 130;
+									columnLayout -rowSpacing 2;
+										string $textureButton = `checkBox -label "Submit Textures" optCheck1`;
+										string $cacheButton = `checkBox	-label "Submit Caches" optCheck2`;
+										string $checkLOD02Export = `checkBox -label "Separate Lod" optCheck3`;
+										text -font boldLabelFont -bgc 1 0 0 -label "아래 항목들은 아직 작동 안해요! ";
+										string $checkLOD01Export = `checkBox -label "Separate Lod01" optCheck4`;
+										string $checkVertices = `checkBox -label "Check Vertices" optCheck5`;
+										string $checkTransform = `checkBox -label "Check Transform" optCheck6`;								
+										string $displayLayerButton = `checkBox -label "Delete Display Layers" optCheck7`;
+										string $renderLayerButton = `checkBox -label "Delete Render Layers" optCheck8`;
+
+						setParent $form;
+						formLayout -edit
+							-attachForm $artistCommentTitle "top" 5
+							-attachForm $artistCommentTitle "left" 5
+							-attachControl $artistCommentField "top" 5 $artistCommentTitle
+							-attachForm $artistCommentField "left" 5
+							-attachForm $preTaskLayout "right" 1
+							-attachControl $preTaskLayout "top" 5 $artistCommentTitle
+						$form;
+				setParent $subWinRootUI;
+					separator -width 608;
+					rowLayout -numberOfColumns 3 -columnWidth3 303 150 151;
+						text -label "";
+						button -label "Save" -width 150 -command "b2DoSaveAssetRelease";
+						button -label "Cancel" -width 150 -command "deleteUI b2SubWin1";
+			showWindow $b2SubWin1;
+		}
+		print "b2SaveAssetReleaseUI..._________________________________________________________procedure is finished\n";
+	}
+	//-/
+
+
+	// b2DoSaveAssetRelease
+	// 기능		- 새 devlop 파일과 옵션작업 처리, 릴리즈 파일 저장.
+	// 입력		- 없음 
+	// 작동절차	-	1. b2DoSaveAssetDevelop 명령을 실행하여 새 develop 파일을 저장.
+	//				2. 체크된 옵션 작업 중 선행 작업을 실행
+	//				3. 텍스쳐 체크
+	//				4. 릴리즈 세이브와 스냅샷 전송, 히스토리 기록.
+	//				5. 옵션 작업중 후행 작업을 실행한다.
+	// 출력		- 없음
+	//-
+	global proc b2DoSaveAssetRelease()
+	{
+		print "b2DoSaveAssetRelease..._________________________________________________________starting up procedure\n";
+		//- 변수 선언
+		string $userName = `optionVar -q "userName"`;
+		string $origFile = `file -q -sceneName`;
+		string $origBaseName = `basename $origFile ".ma"`;
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+		int $origVersionString[] = `b2GetVersionFromFile $origBaseName "v"`;
+		string $targetFile = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "nextRelease" 0`;
+		string $historyFile = `b2GetFileName 2 $selItem[0] $selItem[1] $selItem[2] 0 "historyFile" 0`;	
+		string $comment = `scrollField -q -tx b2AssetCommentField`;
+		string $basename = `basename $targetFile ".ma"`;
+		string $dirPath = `dirname $targetFile`;
+		int $version[] = `b2GetVersionFromFile $targetFile "r"`;
+		string $versionString = b2Pad($version[0], 3);
+		string $closeConfirm = "yes";
+		string $postJobList[];
+		int $trigger = 1;
+		int $postJobChecksum = 0;
+		//-/
+
+		if (!catch(`b2DoSaveAssetDevelop rel`)) //develop 버전 저장
+		{
+			int $checkRootNode = `b2CheckRootNode rel`; //루트노드의 존재여부 확인
+			if( $checkRootNode == 1 || $checkRootNode == 3 )
+			{
+				//- 체크된 옵션 리스트 작성 및 실행
+				string $checkedOptionList[] = `b2CheckOptJobList`;
+				int $optJobCount = `size($checkedOptionList)`;		
+				int $optJobChecksum = 0;
+				for ($job in $checkedOptionList)
+				{
+					string $jobCommand = ($job + " 2 \"" + $dirPath + "\" rel " + $trigger);
+					print "$jobCommand =\n";
+					print $jobCommand;
+					print "\n";
+					int $optResult = `eval($jobCommand)`;
+					if ($optResult == 1) //리턴값이 1인 경우 실행 완료
+					{
+						print ( "optional job " + $job + "is complete and release process continue...\n" );
+						$optJobChecksum ++;
+						continue;
+					}
+					else if ($optResult == 2) //리턴값이 2인 경우 후실행 작업으로 분류
+					{
+						$closeConfirm = "No";
+						$optJobChecksum++;
+						$postJobList[size($postJobList)] = $job;
+						continue;
+					}
+					else
+					{
+						string $optCheckLabel = `checkBox -q -label $job`;
+						print "\n\n";
+						print "=====================================================================================================\n";
+						print "다음 옵션 작업을 실행하는 과정에서 문제가 생겼습니다.\n";
+						print "=====================================================================================================\n\n";
+						print ($optCheckLabel + "\n\n");
+						print "=====================================================================================================\n\n";
+					}
+				}
+				print "$optJobChecksum =\n";
+				print $optJobChecksum;
+				print "\n";
+				print "$optJobCount =\n";
+				print $optJobCount;
+				print "\n";
+				//-/		
+				if ($optJobChecksum != $optJobCount)
+				{
+					confirmDialog -message "파일을 서버에 저장하기 전에 실행한 옵션 작업이 제대로 수행되지 않았습니다.\n문제가 생긴 작업의 리스트를 스크립트 에디터로 출력합니다.";
+				}
+				else
+				{
+					//파일 저장 후 postJob 실행
+					//- 
+					setNamedPanelLayout "Four View";
+					b2CloseAllWin;
+					b2ResetViewportRender;
+					print "check all texture files....\n";
+					string $checkTexture[] = `b2CheckTextureExistence`;
+					print "$checkTexture =\n";
+					print $checkTexture;
+					print "\n";
+					print ( "size of $checkTexture = " + `size($checkTexture)` + "\n" );
+					if (`size($checkTexture)`==0)
+					{
+						//- 저장 실행
+						string $lod03File = `substituteAllString $targetFile "rig_" "rig_lod03_"`;
+						print "removing all renderlayers...\n";
+						b2RemoveRenderLayer;
+						select "|root";
+						print "select root to export\n";
+						if( $selItem[2] == "mdl" )
+						{
+							print "reassigning all materials....\n";
+							b1ReassignMaterials;
+						}
+						if( $selItem[2] == "rig" )
+						{
+							print "removing \"wip_GRP\"...\n";
+							b2RemoveWIPGroup;
+						}
+						int $result1 = `b2SaveAsset "rel" $selItem[2] $version[0] $lod03File`;
+						if ($result1 != 1)
+						{
+							confirmDialog -title "Error!" -message "어셋을 저장하지 못했습니다!";
+						}
+						else
+						{
+							int $result2 = `b2CopySnapshot "ast" $targetFile`;
+							if ($result2 != 1)
+							{
+								confirmDialog -title "Error" -message "스냅샷을 저장하지 못했습니다!";
+							}
+							else
+							{
+								int $result3 = `b2AddCommentToHistory $historyFile "release" $version[0] $userName $comment`;		
+								if ($result3 != 1)
+								{
+									confirmDialog -title "Error" -message "히스토리 파일을 갱신하지 못했습니다!";
+								}
+								else
+								{
+									// deleteUI b2SubWin1;
+									if (size($postJobList))
+									{
+									//- postJob 실행				
+										for ($job in $postJobList)
+										{
+											$trigger = 2;
+											$jobCommand = ($job + " 2 \"" + $dirPath + "\" rel " + $trigger);
+											int $postJobResult = `eval($jobCommand)`;
+											if ($postJobResult == 1)
+											{
+												$postJobChecksum ++;
+												// deleteUI b2SubWin1;
+											}
+											else
+											{
+												$optCheckLabel = `checkBox -q -label $job`;
+												print "\n\n";
+												print "=====================================================================================================\n";
+												print "릴리즈 후 실행한 다음 작업 과정에서 문제가 생겼습니다.\n";
+												print "=====================================================================================================\n\n";
+												print ($optCheckLabel + "\n\n");
+												print "=====================================================================================================\n\n";
+											}
+										}
+									//-/
+									}
+									if ($postJobChecksum == size($postJobList))
+									{
+										deleteUI b2SubWin1;				
+
+										string $confirmation = `confirmDialog -title "Info" -message "release 버전이 무사히 서버에 저장 되었습니다.\n현재 열려있는 씬을 닫으시겠습니까?"
+											-button "Yes"
+											-button "No"`;
+										if ($confirmation == "Yes")
+											file -force -newFile;
+										else
+										{
+											file -rename $origFile;
+											confirmDialog -title "Warning" -message "서버에 저장된 파일에 겹쳐쓰기 되는 위험을 피하기 위해 저장 전의 파일명으로 되돌립니다.";
+										}
+									}
+									else
+									{
+										confirmDialog -title "Error" -message "실패! 파일을 저장하지 못했습니다.";
+									}
+
+								}
+							}
+						}
+						b2UpdHistory "ast";
+						//-/
+					}
+					else
+					{
+						confirmDialog 
+							-message "경로가 잘못되었거나 비어있는 텍스쳐 노드가 있습니다.\n문제를 수정한 후 다시 시도 해주세요.\n노드의 리스트를 script editor로 출력합니다.";
+						print "\n\n\n";
+						print "===================================================================================\n";
+						print "다음 file Texture Node에 문제가 있습니다.\n";
+						print "===================================================================================\n";
+						print $checkTexture;
+						print "===================================================================================\n";
+					}
+					//-/
+				}
+			}
+		}
+		else
+		{
+			confirmDialog -title "Error!" -message "Develop 버전을 저장하지 못했습니다";
+		}		
+		print "b2DoSaveAssetRelease..._________________________________________________________end of finished\n";
+	}
+	//-/
+
+
+//-/
+
+
+//- 유틸리티
+
+	// b2CheckOptJobLis
+	// 기능		- 체크된 옵션 리스트 반환
+	// 입력		- 없음
+	// 작동절차	- 모든 "optCheck#"이름의 checkBox를 검색한 후 value가 1인 checkBox들에 해당하는 명령어 리스트를 반환
+	// 출력		- list of optional job commands
+	//-
+	global proc string[] b2CheckOptJobList()
+	{
+		int $checkBoxNum = 1;
+		string $optCheckName = ("optCheck" + $checkBoxNum);
+		string $optJobName;
+		string $commandList[];
+		while (`checkBox -exists $optCheckName`)
+		{
+			int $stat = `checkBox -q -value $optCheckName`;
+			if ($stat == 1)
+			{
+				string $label = `checkBox -q -label $optCheckName`;
+				string $buffer[] = `stringToStringArray $label " "`;
+				string $command = "b2";
+				for ($word in $buffer)
+				{
+					$command += $word;
+				}
+				$commandList[size($commandList)] = $command;
+			}
+			$checkBoxNum ++;
+			$optCheckName = ("optCheck" + $checkBoxNum);
+		}
+		
+		return $commandList;
+	}
+	//-/
+
+	
+	// b2RemoveRenderlayer
+	//-
+	global proc b2RemoveRenderLayer()
+	{
+		print "b2RemoveRenderLayer....................................................................................................procedure start\n";
+		string $allLayerLst[] = `ls -type "renderLayer"`;
+		string $defaultLayer[] = { "defaultRenderLayer" };
+		editRenderLayerGlobals -currentRenderLayer "defaultRenderLayer";
+		string $rmLayerLst[] = `stringArrayRemoveExact $defaultLayer $allLayerLst`;
+		if( size($rmLayerLst) != 0 )
+		delete $rmLayerLst;
+		print "b2RemoveRenderLayer......................................................................................................procedure end\n";
+	}
+	
+	//-/
+
+	
+	// b2RemoveWIPGroup
+	global proc b2RemoveWIPGroup()
+	{
+		string $wipGrp[] = `ls "wip_GRP*"`;
+		if( size($wipGrp) )
+		{		
+			delete "wip_GRP";
+		}
+	}
+//-/

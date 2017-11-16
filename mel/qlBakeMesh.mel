@@ -1,0 +1,74 @@
+global proc int qlBakeMeshCB(string $filename, string $filetype)
+{
+	int $start, $end, $by;
+	string $selectionList[];
+	string $node;
+	$selectionList=`ls -sl -o`;
+	$node = qlGetShape($selectionList[0]);
+
+	$start = `playbackOptions -q -min`;
+	$end = `playbackOptions -q -max`;
+	$by = `playbackOptions -q -by`;
+	
+	qlBake -n $node -s $start -e $end -b $by -f $filename -w;
+	return 1;
+}
+global proc int qlBakeMeshPerFrameCB(string $filename, string $filetype)
+{
+	int $start, $end, $by;
+	string $selectionList[];
+	string $node;
+	$selectionList=`ls -sl -o`;
+	$node = qlGetShape($selectionList[0]);
+
+	$start = `playbackOptions -q -min`;
+	$end = `playbackOptions -q -max`;
+	$by = `playbackOptions -q -by`;
+	
+	qlBake -n $node -s $start -e $end -b $by -f $filename -w -p;
+	return 1;
+}
+global proc int qlBakeMesh() 
+{
+	string $selectionlist[];
+	string $node;
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) != 1) {
+		error "select a polygon mesh";
+		return 0;
+	}
+
+	$node = qlGetShape($selectionList[0]);
+	if(nodeType($node) != "mesh")
+	{
+		error "select a polygon mesh";
+		return 0;
+	}
+
+	fileBrowser("qlBakeMeshCB", "Bake Mesh", "", 1);
+	return 1;
+}
+global proc int qlBakeMeshPerFrame() 
+{
+	string $selectionlist[];
+	string $node;
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) != 1) {
+		error "select a polygon mesh";
+		return 0;
+	}
+
+	$node = qlGetShape($selectionList[0]);
+	if(nodeType($node) != "mesh")
+	{
+		error "select a polygon mesh";
+		return 0;
+	}
+
+	fileBrowser("qlBakeMeshPerFrameCB", "Bake Mesh", "", 1);
+	return 1;
+}

@@ -1,0 +1,33 @@
+global proc  AEqlPropertyTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+	
+	editorTemplate -beginLayout "Material Property" -collapse 0;
+		editorTemplate -addControl "lengthScale";
+		editorTemplate -addControl "density";
+		editorTemplate -l "Stretch Resistance" -addControl "stretch";
+		editorTemplate -l "Shear Resistance" -addControl "shear";
+		editorTemplate -addControl "stretchDamp";
+		editorTemplate -l "Bend Resistance" -addControl "bend";
+		editorTemplate -addControl "bendDamp";
+		editorTemplate -addControl "bendYield";
+		editorTemplate -addControl "bendPlasticity";
+		editorTemplate -addControl "airDrag";
+		editorTemplate -addControl "rubber";
+		editorTemplate -addControl "viscousDamp";
+		editorTemplate -addControl "friction";
+		editorTemplate -addControl "pressure";
+		editorTemplate -addControl "overrideGravity" "qlUpdateGravity";
+		editorTemplate -addControl "gravity";
+		editorTemplate -addControl "overrideCompression" "qlUpdateCompression";
+		editorTemplate -l "Compression Resistance" -addControl "compression";
+		editorTemplate -addControl "anisotropicControl" "qlUpdateAnisotropicControl";
+		editorTemplate -l "Warp(U) Resistance Scale" -addControl "uStretchScale";
+		editorTemplate -l "Weft(V) Resistance Scale" -addControl "vStretchScale";
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

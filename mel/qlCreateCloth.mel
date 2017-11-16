@@ -1,0 +1,94 @@
+global proc string qlCreateCloth() 
+{
+	global string $qlCurrentSolver;
+	string $cloth;
+	
+	$cloth = qlCreateClothWithSolver($qlCurrentSolver);
+	
+	select $cloth;
+	
+	return $cloth;
+}
+
+global proc string qlCreateClothWithSolver(string $solver) 
+{
+	global string $qlCurrentSolver;
+	string $selectionList[];
+	string $mesh;
+	string $meshList[];
+	string $cloth;
+	
+	$selectionList = `ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "No mesh selected";
+		return "";
+	}
+	if(size($selectionList) > 1) {
+		warning "Only the first selected mesh will be converted to cloth.";
+	}
+
+	$mesh = $selectionList[0];
+	if(nodeType(qlGetShape($mesh)) != "mesh")
+	{
+		error ($mesh + " is not a mesh");
+		return "";
+	}
+	
+	
+	$cloth = qlCreateClothWithMeshAndSolver($mesh, $solver);
+	
+	hide $mesh;	
+	select $cloth;
+	
+	return $cloth;
+}
+
+global proc string qlCreateClothWithMeshAndSolver(string $mesh, string $_solver) 
+{
+	global string $qlCurrentSolver;
+	string $selectionList[];
+	string $conv;
+	string $cloth;
+	string $clothTr[];
+	string $omesh;
+	int $ci;
+	
+	if( !objExists($mesh) || !(nodeType(qlGetShape($mesh)) == "mesh") ) {
+		error ($mesh + " is not a mesh!!!");
+		return "";
+	}
+	
+	$solver = qlValidateSolver($_solver);
+	
+	if( $solver == "") {
+		$solver = qlValidateSolver("New Solver");
+	}
+
+	$conv = `createNode qlConverter`;
+	$cloth = `createNode qlClothShape`;
+	
+	$clothTr = `listRelatives -p $cloth`;
+	$omesh = `createNode mesh -n ($clothTr[0]+"OutShape")`;
+	connectAttr ($mesh+".worldMesh") ($conv+".input");
+	connectAttr ($conv+".output") ($cloth+".inputGeometry");
+	
+	$ci=0;
+	while(eval("connectionInfo -id "+$solver+".inputCloth["+$ci+"]")==1) $ci++;
+	
+	connectAttr time1.outTime ($cloth+".currentTime");
+	connectAttr ($solver+".startTime") ($cloth+".startTime");
+	connectAttr ($solver+".resim") ($cloth+".resim");
+
+	connectAttr ($solver+".currentState["+$ci+"]") ($cloth+".currentState");
+	connectAttr ($cloth+".clothState") ($solver+".clothState["+$ci+"]") ;
+	connectAttr ($cloth+".inputGeomChangeNotify") ($solver+".inputCloth["+$ci+"]");
+	
+	connectAttr ($cloth+".outputMesh") ($omesh+".inMesh");
+	
+	select -r $omesh;
+	assignShadingGroup initialShadingGroup;
+
+	select $cloth;
+	return $cloth;
+}
+

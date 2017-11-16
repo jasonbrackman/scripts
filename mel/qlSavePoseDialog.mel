@@ -1,0 +1,16 @@
+global proc int qlSavePoseCB(string $filename, string $filetype)
+{
+	qlSavePose -f $filename;
+	return 1;
+}
+
+global proc int qlSavePoseDialog() 
+{
+	if(size(`ls -sl -o`)==0)
+	{
+		error "select a mesh";
+		return 0;
+	}
+	fileBrowser("qlSavePoseCB", "Save State", "", 1);
+	return 1;
+}

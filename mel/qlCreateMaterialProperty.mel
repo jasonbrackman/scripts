@@ -1,0 +1,54 @@
+global proc string qlCreateMaterialProperty() 
+{
+	string $nodes[];
+	string $node;
+	string $property;
+
+	$nodes = `ls -sl -o`;
+	if(size($nodes) < 1)
+	{
+		error "select pattern nodes";
+		return "";
+	}
+
+	$property = `createNode qlProperty`;
+	for ($node in $nodes)
+	{
+		$node = qlGetShape($node);
+		if(nodeType($node) == "qlPattern")
+		{
+			if(`connectionInfo -id ($node+".materialProperty")`==0)
+			{
+				connectAttr ($property+".materialProperty") ($node+".materialProperty");
+			}
+		}
+	}
+	return $property;
+}
+
+global proc qlDeleteMaterialProperty() 
+{
+	string $nodes[];
+	string $node;
+	string $properties[];
+
+	$nodes = `ls -sl -o`;
+	if(size($nodes) < 1)
+	{
+		error "select pattern nodes";
+		return;
+	}
+
+	for ($node in $nodes)
+	{
+		$node = qlGetShape($node);
+		if(nodeType($node) == "qlPattern")
+		{
+			if(`connectionInfo -id ($node+".materialProperty")`==1)
+			{
+				$properties = `listConnections -s 1 ($node+".materialProperty")`;
+				delete $properties[0];
+			}
+		}
+	}
+}

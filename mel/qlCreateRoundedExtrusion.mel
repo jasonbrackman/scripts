@@ -1,0 +1,26 @@
+global proc string qlCreateRoundedExtrusion() 
+{
+	string $nodes[];
+	string $node;
+	string $extruded;
+	string $extruder;
+
+	$nodes = `ls -sl -o`;
+
+	if(size($nodes ) == 0) 
+	{
+		return "";
+	}
+
+	for($node in $nodes)
+	{
+		$node = qlGetShape($node);
+		$extruded = `createNode mesh -n ($node+"_extrudedShape")`;
+		$extruder = `createNode qlRoundedExtrude`;
+		connectAttr ($node+".outMesh") ($extruder+".inMesh");
+		connectAttr ($extruder+".outMesh") ($extruded+".inMesh");
+		select -r $extruded;
+		assignShadingGroup initialShadingGroup;
+	}
+	return $extruded;
+}

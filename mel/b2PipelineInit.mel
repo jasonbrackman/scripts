@@ -1,0 +1,51 @@
+string $currentUser = `getenv userName`;
+if( `optionVar -q "projRoot"` == "" )
+{
+	optionVar -sv "projRoot" "p:/";
+}
+optionVar -sv "userName" $currentUser;
+optionVar -sv "assetDir" "4.Asset";
+optionVar -sv "shotDir" "5.Shot";
+optionVar -sv "developDir" "develop";
+optionVar -sv "releaseDir" "release";
+optionVar -sv "developVerTag" "v";
+optionVar -sv "releaseVerTag" "r";
+optionVar -sv "infoDir" "_info";
+optionVar -sv "modeling" "mdl";
+optionVar -sv "rigging" "rig";
+optionVar -sv "animation" "ani";
+optionVar -sv "effect" "efx";
+optionVar -sv "deletePath" "deletedItems";
+global string $delPassword = "cgartist";
+
+python ("import sys");
+python ("syspath = sys.path\nsrcPath = \"N:/b1Env/maya/2012/scripts/b1Pipeline/\"\nif srcPath not in sys.path:\n    sys.path.append(srcPath)");
+python ("from b1CacheExport import\*");
+
+if ((`optionVar -exists "currProjIndex"`) == 0)
+{
+	optionVar -iv "currProjIndex" 1;
+}
+
+if ((`optionVar -exists "currProj"`) == 0)
+{
+	optionVar -sv "currProj" "selectProject";
+}
+
+global proc string[] b2AssetCompoPreset()
+{
+	string $assetCompoList[]= { "mdl", "rig", "faceRig", "ani", "lookDev", "efx", "lod", "Custom Component" };
+	return $assetCompoList;
+}
+
+global proc string[] b2ShotCompoPreset()
+{
+	string $shotCompoList[] = { "ani", "efx", "lit", "Custom Component" };
+	return $shotCompoList;
+}
+
+global proc string[] b2SkipOptJob()
+{
+	string $jobList[] = { "b2SeparateLod" };
+	return $jobList;
+}

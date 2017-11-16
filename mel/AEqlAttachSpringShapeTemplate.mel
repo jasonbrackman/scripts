@@ -1,0 +1,21 @@
+global proc  AEqlAttachSpringShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Attach Spring Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "stiffness";
+		editorTemplate -addControl "damping";
+		editorTemplate -addControl "restLengthScale";
+		editorTemplate -addControl "breakLength";
+		editorTemplate -suppress "spring";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

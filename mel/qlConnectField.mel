@@ -1,0 +1,67 @@
+global proc string qlConnectField() 
+{
+	string $sim;
+	string $cloth;
+	string $field;
+	string $fieldfilter;
+	string $weightMesh;
+	string $parents[];
+	string $plug_names[];
+	int $ci;
+	int $mi;
+
+	$cloth = qlGetCloth();
+	$sim = qlGetSimulator();
+
+	if($sim == "" || $cloth == "") {
+		error "select cloth vertices and a field";
+		return "";
+	}
+
+	$field = qlGetField();
+	if($field == "") {
+		error "select cloth vertices and a field";
+		return "";
+	}
+
+	string $vi = `qlExpandVerIdx`;
+	
+	if($vi == "0") {
+		error "select at least one cloth vertex";
+		return "";
+	}
+	
+	$plug_names = `listConnections -p on ($cloth+".inputGeomChangeNotify")`;
+	if(size($plug_names)<1)
+	{
+		error "this cloth has no solver";
+		return "";		
+	}
+
+	$fieldfilter = "qlFieldFilter_"+$field+"Shape";
+	$fieldfilter= `createNode qlFieldFilterShape -n $fieldfilter`;
+
+	$ci=0;
+	while(eval("connectionInfo -id "+$field+".inputData["+$ci+"]")==1) $ci++;
+	
+	
+	
+	$mi = qlGetLogicalIndex($plug_names[0]);
+	
+	connectAttr ($sim+".fieldData["+$mi+"]") ($field+".inputData["+$ci+"]");
+	
+	connectAttr ($field+".outputForce["+$ci+"]") ($fieldfilter+".inputField");
+	connectAttr -na ($fieldfilter+".outputField") ($cloth+".velocityField");	
+	eval("setAttr "+$fieldfilter+".vertexIndices -type Int32Array "+$vi);
+	connectAttr ($cloth+".lastMesh") ($fieldfilter+".inMesh");
+	$weightMesh = `createNode mesh -n ($fieldfilter+"_weightMeshShape")`;
+	connectAttr ($fieldfilter+".outMesh") ($weightMesh+".inMesh");	
+	select -r $weightMesh;
+	assignShadingGroup initialShadingGroup;
+	$parents = `listRelatives -p $weightMesh`;
+	hide ($parents[0]);
+
+	select $fieldfilter;
+	return $fieldfilter;
+}
+

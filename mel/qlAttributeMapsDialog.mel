@@ -1,0 +1,41 @@
+global proc int qlSaveAttributeMapsDialog() 
+{
+	string $cloth;
+	$cloth = qlGetCloth();
+	if($cloth == "") {
+		error "select a cloth";
+		return 0;
+	}
+	
+	string $filename = `fileDialog -m 1 -dm "*.*"`;
+	
+	if(`qlCommand -n $cloth -c "saveAttributeMaps" -a $filename` == 1) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+global proc int qlLoadAttributeMapsCB(string $cloth, string $filename, string $filetype)
+{
+	if(`qlCommand -n $cloth -c "openAttributeMaps" -a $filename` == 1) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
+global proc int qlLoadAttributeMapsDialog() 
+{
+	string $cloth;
+	$cloth = qlGetCloth();
+	if($cloth == "") {
+		error "select a cloth";
+		return 0;
+	}
+	string $cmd;
+	$cmd = "qlLoadAttributeMapsCB " +$cloth;
+	fileBrowser($cmd, "Load AttributeMaps", "", 0);
+	return 1;
+}

@@ -1,0 +1,27 @@
+global proc  AEqlSpringShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Spring Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "vertexIndex1";
+		editorTemplate -addControl "vertexIndex2";
+		editorTemplate -addControl "stretchStiffness";
+		editorTemplate -addControl "compressionStiffness";
+		editorTemplate -addControl "damping";
+		editorTemplate -addControl "restLength";
+		editorTemplate -addControl "breakLength";
+		editorTemplate -addControl "originalLength";
+		editorTemplate -addControl "currentLength";
+		editorTemplate -dimControl $nodeName "currentLength" 1;
+		editorTemplate -suppress "spring";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

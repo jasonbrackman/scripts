@@ -1,0 +1,165 @@
+global proc qlPaintClothAttribute(string $map)
+{
+	global string $gArtAttrCurrentAttr;
+	string $cloth;
+
+
+	$cloth = qlGetCloth();
+	if($cloth == "") 
+	{
+		error "selected object is not a cloth object";
+		return;
+	}
+
+	string $tool = "artAttrContext";
+	if( ! `artAttrCtx -exists $tool` ) {
+		rememberCtxSettings `artAttrCtx -i1 "attrPaint.png" -whichTool "general" $tool`;
+	}
+	setToolTo $tool;
+	$gArtAttrCurrentAttr = ("qlClothShape."+$cloth+"."+$map);
+	toolPropertyWindow;
+	//artAttrPaintValues artAttrCtx artAttrContext;
+}
+
+
+global proc qlPaintColliderAttribute(string $map)
+{
+	global string $gArtAttrCurrentAttr;
+	string $collider;
+	string $colliderOffset;
+	string $nodes[];
+
+
+	$collider = qlGetCollider();
+	if($collider == "") 
+	{
+		$collider = qlGetPastCollider(); // in case of offset mesh
+		if($collider == "") 
+		{
+			error "selected object is not a collider object";
+			return;
+		}
+	}
+
+
+	$nodes = `listConnections -d 1 -t mesh ($collider+".output")`;
+
+	if(size($nodes) ==0) 
+	{
+		error "selected collider has no offset mesh";
+		return;
+	}
+
+	$colliderOffset = $nodes[0];
+
+	showHidden $colliderOffset;
+	select -r $colliderOffset;
+
+	string $tool = "artAttrContext";
+	if( ! `artAttrCtx -exists $tool` ) {
+		rememberCtxSettings `artAttrCtx -i1 "attrPaint.png" -whichTool "general" $tool`;
+	}
+	setToolTo $tool;
+	$gArtAttrCurrentAttr = ("qlColliderShape."+$collider+"."+$map);
+	toolPropertyWindow;
+}
+
+global proc qlPaintGoalConstraintAttribute(string $map)
+{
+	global string $gArtAttrCurrentAttr;
+	string $constraint;
+	string $constraint_outmesh;
+	string $nodes[];
+
+
+	$constraint = qlGetGoalConstraint();
+	if($constraint == "") 
+	{
+		$constraint = qlGetPastGoalConstraint(); // in case of output mesh
+		if($constraint == "") 
+		{
+			error "selected object is not a goal constraint object";
+			return;
+		}
+	}
+
+
+	$nodes = `listConnections -d 1 -t mesh ($constraint+".outputGoalMesh")`;
+
+	if(size($nodes) ==0) 
+	{
+		error "selected collider has no offset mesh";
+		return;
+	}
+
+	$constraint_outmesh = $nodes[0];
+
+	showHidden $constraint_outmesh;
+	select -r $constraint_outmesh;
+
+	string $tool = "artAttrContext";
+	if( ! `artAttrCtx -exists $tool` ) {
+		rememberCtxSettings `artAttrCtx -i1 "attrPaint.png" -whichTool "general" $tool`;
+	}
+	setToolTo $tool;
+	$gArtAttrCurrentAttr = ("qlGoalConstraintShape."+$constraint+"."+$map);
+	toolPropertyWindow;
+}
+
+global proc qlPaintMeshMixerAttribute(string $map)
+{
+	global string $gArtAttrCurrentAttr;
+	string $mixer;
+
+
+	$mixer = qlGetMeshMixer();
+	if($mixer == "") 
+	{
+		error "selected object is not a mixed mesh";
+		return;
+	}
+
+	string $tool = "artAttrContext";
+	if( ! `artAttrCtx -exists $tool` ) {
+		rememberCtxSettings `artAttrCtx -i1 "attrPaint.png" -whichTool "general" $tool`;
+	}
+	setToolTo $tool;
+	$gArtAttrCurrentAttr = ("qlMeshMixer."+$mixer+"."+$map);
+	toolPropertyWindow;
+}
+
+global proc qlPaintFieldFilterAttribute(string $map)
+{
+	global string $gArtAttrCurrentAttr;
+	string $filter;
+	string $filter_weightmesh;
+	string $nodes[];
+
+	$filter = qlGetFieldFilter();
+	if($filter == "") 
+	{
+		error "selected object is not a filed filter or filter weight mesh";
+		return;
+	}
+
+	$nodes = `listConnections -d 1 -t mesh ($filter+".outMesh")`;
+	if(size($nodes) ==0) 
+	{
+		error "selected filter has no weight mesh";
+		return;
+	}
+
+	$filter_weightmesh = $nodes[0];
+
+	showHidden $filter_weightmesh;
+	select -r $filter_weightmesh;
+
+
+	string $tool = "artAttrContext";
+	if( ! `artAttrCtx -exists $tool` ) {
+		rememberCtxSettings `artAttrCtx -i1 "attrPaint.png" -whichTool "general" $tool`;
+	}
+	setToolTo $tool;
+	$gArtAttrCurrentAttr = ("qlFieldFilterShape."+$filter+"."+$map);
+	toolPropertyWindow;
+}

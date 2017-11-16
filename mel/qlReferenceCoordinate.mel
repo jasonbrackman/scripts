@@ -1,0 +1,42 @@
+global proc int qlSetLocalSpace() 
+{
+	string $sel[];
+	string $node;
+	string $sim;
+
+	$sel = `ls -sl -o`;
+	if(size($sel)<1) {
+		error "select a cloth";
+                return 0;
+        }
+	$node = $sel[0];
+	$sim = `qlHasSimulator($node)`;
+	if($sim == "") return 0;
+
+	$kin = `createNode qlTransformKinematics`;	
+	connectAttr ($node+".worldInverseMatrix") ($sim+".referenceTransform");
+	connectAttr time1.outTime ($kin+".inputTime");
+	connectAttr ($node+".worldMatrix") ($kin+".inputTransform");
+	connectAttr ($kin+".linearVelocity") ($sim+".referenceTransformVelocity");
+	connectAttr ($kin+".linearAcceleration") ($sim+".referenceTransformAcceleration");
+	 
+	return 1;
+}
+
+global proc int qlSetWorldSpace() 
+{
+	string $sim;
+	string $attrs[];
+	string $nodes[];
+
+	$sim = qlGetSimulator();
+	$attrs = `listConnections -c 1 -p 1 ($sim+".referenceTransform")`;
+	if(size($attrs)>=2) disconnectAttr $attrs[1] $attrs[0];
+
+	$nodes= `listConnections ($sim+".referenceTransformVelocity")`;
+	if(size($nodes)>0) delete $nodes[0];
+	$nodes= `listConnections ($sim+".referenceTransformAcceleration")`;
+	if(size($nodes)>0) delete $nodes[0];
+
+	return 1;
+}

@@ -1,0 +1,237 @@
+global proc string qlCreateSpring() 
+{
+	string $solver;
+	string $spring;
+	string $idx[];
+	string $clothes[];
+
+	$clothes = qlGetTwoClothes();
+	if($clothes[0] == "" || $clothes[1] == "")
+	{
+		error "there is no cloth connected to this vertex";
+		return "";
+	}
+	
+	$solver = qlGetSolver($clothes[0]);
+	if($solver != qlGetSolver($clothes[1]))
+	{
+		error "two vertices do not belong to a single solver";
+		return "";
+	}
+
+	string $vi = `qlExpandVerIdx -s`;
+	if(`tokenize $vi " " $idx` < 2)
+	{
+		error "select at least one cloth vertex";
+		return "";
+	}
+	if(size($idx) == 2) $idx[2] = "-1";
+
+	$spring = `createNode qlSpringShape`;
+	string $parents[] = `listRelatives -p $spring`;
+
+	eval("setAttr "+$spring+".vertexIndex1 "+$idx[1]);
+	eval("setAttr "+$spring+".vertexIndex2 "+$idx[2]);
+	connectAttr -na ($spring+".spring") ($solver+".spring");
+	connectAttr ($parents[0]+".worldMatrix") ($spring+".inputMatrix");
+	
+	connectAttr ($clothes[0]+".lastMesh") ($spring+".inMesh1");
+	connectAttr ($clothes[1]+".lastMesh") ( $spring+".inMesh2");
+
+	setAttr ($spring+".originalLength") `getAttr ($spring+".currentLength")`;
+	
+	select $spring;
+	return $spring;
+}
+
+global proc string qlCreateSprings(string $vertices[], int $preserve_length) 
+{
+	string $solver;
+	string $spring;
+	string $springGroup;
+	string $idx[];
+	string $clothes[];
+
+	if (size($vertices) == 0)
+	{
+		error "qlCreateSprings : no proximate vertices are found";
+		return "";
+	}
+	if(size($vertices) % 2 != 0 )
+	{
+		error "qlCreateSprings : cloth vertices	are not paired";
+		return "";
+	}
+
+	int $num_springs = size($vertices)/2;
+
+
+	$springGroup = `group -n springGroup -em`;
+	for($i=0;$i<$num_springs;$i++)
+	{
+		string $v1 = $vertices[$i*2];
+		string $v2 = $vertices[$i*2+1];
+
+		string $cloth1 = qlHasCloth($v1);
+		string $cloth2 = qlHasCloth($v2);
+
+		if($cloth1 == "")
+		{
+			warning ("there is no cloth connected to this vertex : " + $v1);
+			continue;
+		}
+
+		if($cloth2 == "")
+		{
+			warning ("there is no cloth connected to this vertex : " + $v2);
+			continue;
+		}
+
+		$solver = qlGetSolver($cloth1);
+		if($solver != qlGetSolver($cloth2))
+		{
+			warning ("two cloth objects do not belong to a single solver : " + $cloth1 + ", " + $cloth2);
+			continue;
+		}
+		
+		$idx[1] = match("[0-9]+", match("\[[0-9]+\]", $v1));
+		$idx[2] = match("[0-9]+", match("\[[0-9]+\]", $v2));
+
+		$spring = `createNode qlSpringShape`;
+		string $parents[] = `listRelatives -p $spring`;
+
+		eval("setAttr "+$spring+".vertexIndex1 "+$idx[1]);
+		eval("setAttr "+$spring+".vertexIndex2 "+$idx[2]);
+		connectAttr -na ($spring+".spring") ($solver+".spring");
+		connectAttr ($parents[0]+".worldMatrix") ($spring+".inputMatrix");
+	
+		connectAttr ($cloth1+".lastMesh") ($spring+".inMesh1");
+		connectAttr ($cloth2+".lastMesh") ( $spring+".inMesh2");
+
+		setAttr ($spring+".originalLength") `getAttr ($spring+".currentLength")`;
+		if($preserve_length==1) { setAttr ($spring+".restLength") `getAttr ($spring+".originalLength")`; }
+		parent $parents[0] $springGroup;
+	}
+
+	if(size(`listRelatives $springGroup`)==0) 
+	{
+		delete $springGroup;
+		return "";
+	}
+	
+	select $springGroup;
+	return $springGroup;
+}
+
+global proc string qlWeldProximateVertices()
+{
+	global float $gQualothWeldProximity;
+	global int $gQualothPreserveOriginalLength;
+	global int $gQualothBorderVerticesOnly;
+	global int $gQualothAvoidSelfWelding;
+	string $vertices[] = `qlGetProximateVertexPairs -t $gQualothWeldProximity -b $gQualothBorderVerticesOnly -s $gQualothAvoidSelfWelding`;
+	return qlCreateSprings($vertices, $gQualothPreserveOriginalLength);
+}
+
+global proc qlApplyWeldProximateVerticesOptions()
+{
+	global float $gQualothWeldProximity;
+	global int $gQualothPreserveOriginalLength;
+	global int $gQualothBorderVerticesOnly;
+	global int $gQualothAvoidSelfWelding;
+	$gQualothWeldProximity = `floatSliderGrp -q -v qlWeldProximateVerticesOptionsProximitySlider`;
+	$gQualothPreserveOriginalLength = `checkBox -q -v qlWeldProximateVerticesOptionsProximityCheck`;
+	$gQualothBorderVerticesOnly = `checkBox -q -v qlWeldProximateVerticesOptionsBorderCheck`;
+	$gQualothAvoidSelfWelding = `checkBox -q -v qlWeldProximateVerticesOptionsSelfCheck`;
+
+	qlWeldProximateVertices;
+}
+
+global proc createQualothWeldProximateVerticesOptionsLayout()
+{
+	global string $gQualothMenu;
+	global string $gQualothWeldProximateVerticesOptionWindow;
+		
+	window -iconName "Qualoth > Weld Proximate Vertices Options" -rtf true $gQualothWeldProximateVerticesOptionWindow;
+
+	formLayout -w 640 -h 480 qlWeldVertices;
+	
+	formLayout qlWeldProximateVerticesOptionsSliderForm;
+	floatSliderGrp -label "Proximity Threshold " -field true -min 0.0  -value 0.00001 -step 0.00001 qlWeldProximateVerticesOptionsProximitySlider;
+	checkBox -label "Preserve Original Length" -v false qlWeldProximateVerticesOptionsProximityCheck;
+	checkBox -label "Border Vertices Only" -v true qlWeldProximateVerticesOptionsBorderCheck;
+	checkBox -label "Avoid Self Welding" -v true qlWeldProximateVerticesOptionsSelfCheck;
+	
+
+
+	formLayout -edit 
+		-af qlWeldProximateVerticesOptionsProximitySlider "top" 5
+		-af qlWeldProximateVerticesOptionsProximitySlider "left" 5
+		-af qlWeldProximateVerticesOptionsProximitySlider "right" 5
+
+		-ac qlWeldProximateVerticesOptionsProximityCheck "top" 5 qlWeldProximateVerticesOptionsProximitySlider
+		-ap qlWeldProximateVerticesOptionsProximityCheck "left" 5 33
+		-ap qlWeldProximateVerticesOptionsProximityCheck "right" 5 66
+
+		-ac qlWeldProximateVerticesOptionsBorderCheck "top" 5 qlWeldProximateVerticesOptionsProximityCheck
+		-ap qlWeldProximateVerticesOptionsBorderCheck "left" 5 33
+		-ap qlWeldProximateVerticesOptionsBorderCheck "right" 5 66
+
+		-ac qlWeldProximateVerticesOptionsSelfCheck "top" 5 qlWeldProximateVerticesOptionsBorderCheck
+		-ap qlWeldProximateVerticesOptionsSelfCheck "left" 5 33
+		-ap qlWeldProximateVerticesOptionsSelfCheck "right" 5 66
+		
+		qlWeldProximateVerticesOptionsSliderForm;
+				
+	setParent ..;
+	
+	formLayout qlWeldProximateVerticesOptionsButtonForm;			
+	button -label "Weld and Close" -c "qlApplyWeldProximateVerticesOptions; window -e -visible false $gQualothWeldProximateVerticesOptionWindow" qlWeldProximateVerticesOptionsApplyAndCloseButton;
+	button -label "Weld" -c "qlApplyWeldProximateVerticesOptions" qlWeldProximateVerticesOptionsApplyButton;
+	button -label "Close" -c "window -e -visible false $gQualothWeldProximateVerticesOptionWindow" qlWeldProximateVerticesOptionsCloseButton;
+
+		
+	formLayout -edit
+        -af qlWeldProximateVerticesOptionsApplyAndCloseButton "left" 5 
+        -af qlWeldProximateVerticesOptionsApplyAndCloseButton "bottom" 5
+        -ap qlWeldProximateVerticesOptionsApplyAndCloseButton "right" 5 33 
+
+        -ac qlWeldProximateVerticesOptionsApplyButton "left" 5 qlWeldProximateVerticesOptionsApplyAndCloseButton
+        -af qlWeldProximateVerticesOptionsApplyButton "bottom" 5
+        -ap qlWeldProximateVerticesOptionsApplyButton "right" 5 66
+
+        -ac qlWeldProximateVerticesOptionsCloseButton "left" 5 qlWeldProximateVerticesOptionsApplyButton
+        -af qlWeldProximateVerticesOptionsCloseButton "right" 5
+        -af qlWeldProximateVerticesOptionsCloseButton "bottom" 5
+            
+       qlWeldProximateVerticesOptionsButtonForm;
+
+       
+    formLayout -edit
+		-af qlWeldProximateVerticesOptionsSliderForm "top" 5
+		-af qlWeldProximateVerticesOptionsSliderForm "left" 5
+		-af qlWeldProximateVerticesOptionsSliderForm "right" 5
+		-ac qlWeldProximateVerticesOptionsSliderForm "bottom" 5 qlWeldProximateVerticesOptionsButtonForm
+
+		-af qlWeldProximateVerticesOptionsButtonForm "left" 5
+		-af qlWeldProximateVerticesOptionsButtonForm "right" 5
+		-af qlWeldProximateVerticesOptionsButtonForm "bottom" 5
+		
+		qlWeldVertices;
+}
+
+
+
+global proc qlWeldProximateVerticesOptions()
+{
+	global string $gQualothWeldProximateVerticesOptionWindow = "qlWeldProximateVerticesOptionWnd";
+
+	if( ! `window -q -exists $gQualothWeldProximateVerticesOptionWindow` )
+	{
+		createQualothWeldProximateVerticesOptionsLayout();
+	}
+
+	window -edit -title "Weld Proximate Vertices Options" $gQualothWeldProximateVerticesOptionWindow;
+
+	showWindow $gQualothWeldProximateVerticesOptionWindow;
+}

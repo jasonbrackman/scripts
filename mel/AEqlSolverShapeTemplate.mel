@@ -1,0 +1,135 @@
+global proc int qlPerFrameCacheOpenFolderCB( string $attrname,
+                                 string $foldername,
+                                 string $fileType )
+{
+	setAttr $attrname -type "string" $foldername;
+	return true;
+}
+global proc qlPerFrameCacheFolderBrowser ( string $cmd )
+{
+	fileBrowser ($cmd, "Per-Frame Cache Folder", "", 4);
+}
+
+global proc  qlPerFrameCacheFolderReplace(string $attrName)
+{
+	connectControl -fileName perFrameCacheFolderField $attrName;
+	string $load_command = "qlPerFrameCacheOpenFolderCB"+" "+$attrName;
+
+      symbolButton -e -c ("qlPerFrameCacheFolderBrowser \"" + $load_command + "\"") browserBtn;
+}
+global proc  qlPerFrameCacheFolderNew(string $attrName)
+{
+	setUITemplate -pst attributeEditorTemplate;
+	columnLayout -adjustableColumn 1 cacheNameLayout;
+		rowLayout -nc 4 -cw 4 25;
+		text -l "Per Frame Cache Folder";
+		textField perFrameCacheFolderField;
+		symbolButton -i "navButtonBrowse.xpm" browserBtn;
+	setParent ..;
+	setUITemplate -ppt;
+	qlPerFrameCacheFolderReplace($attrName);
+}
+
+global proc qlUpdateContactThreshold(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".overrideContactThreshold" )`;	
+	editorTemplate -dimControl $nodeName "contactThreshold" (!$override);
+}
+
+global proc qlUpdateConsistentDamping(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".consistentDamping" )`;	
+	editorTemplate -dimControl $nodeName "referenceFrameSamples" (!$override);
+}
+
+global proc qlUpdateSelfCollision(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".selfCollision" )`;	
+	editorTemplate -dimControl $nodeName "selfContinuous" (!$override);
+	editorTemplate -dimControl $nodeName "selfRecovery" (!$override);
+	editorTemplate -dimControl $nodeName "proximityForce" (!$override);
+}
+
+global proc qlUpdateSolidCollision(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".solidCollision" )`;	
+	editorTemplate -dimControl $nodeName "sharpFeature" (!$override);
+	editorTemplate -dimControl $nodeName "sharpFeatureForce" (!$override);
+}
+
+global proc  AEqlSolverShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	editorTemplate -beginLayout "Simulator Attributes" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -io;
+		editorTemplate -addControl "solverStatistics";
+		editorTemplate -io;
+		editorTemplate -addControl "simpleSubsampling";
+		editorTemplate -io;
+		editorTemplate -addControl "partialResimulation";
+		editorTemplate -io;
+		editorTemplate -addControl "startTime";
+		editorTemplate -addControl "frameSamples";
+		editorTemplate -addControl "timeScale";
+		editorTemplate -addControl "lengthScale";
+		editorTemplate -addControl "maxCGIteration";
+		editorTemplate -addControl "cgAccuracy";
+		editorTemplate -addControl "gravity";
+		editorTemplate -suppress "showInternalMesh";
+		//editorTemplate -io;
+		editorTemplate -addControl "showVertexStatus";
+		editorTemplate -addSeparator;
+		editorTemplate -addControl "consistentDamping" "qlUpdateConsistentDamping";
+		editorTemplate -addControl "referenceFrameSamples";
+		editorTemplate -addSeparator;
+		editorTemplate -addControl "postSimScript";
+
+		editorTemplate -suppress "inputCloth";
+		editorTemplate -suppress "currentTime";
+		editorTemplate -suppress "spring";
+		editorTemplate -suppress "localSimulation";
+
+	editorTemplate -endLayout;
+
+	editorTemplate -beginLayout "Collision Attributes" -collapse 1;
+		editorTemplate -beginLayout "Self Collision Attributes" -collapse 0;
+		editorTemplate -addControl "selfCollision" "qlUpdateSelfCollision";
+		editorTemplate -io;
+		editorTemplate -addControl "selfRecovery";
+		editorTemplate -io;
+		editorTemplate -addControl "selfContinuous";
+		editorTemplate -io;		
+		editorTemplate -l "Self Proximity Force" -addControl "proximityForce";
+		editorTemplate -endLayout;
+
+		editorTemplate -beginLayout "Solid Collision Attributes" -collapse 0;
+		editorTemplate -addControl "solidCollision" "qlUpdateSolidCollision";
+		editorTemplate -io;
+		editorTemplate -addControl "sharpFeature";
+		editorTemplate -io;
+		editorTemplate -l "Solid Proximity Force" -addControl "sharpFeatureForce";		
+		editorTemplate -endLayout;
+
+	editorTemplate -endLayout;
+
+	editorTemplate -beginLayout "Local Space Simulation" -collapse 1;
+		editorTemplate -l "Acceleration Scale" -addControl "referenceTransformAccelerationScale";
+		editorTemplate -l "Velocity Scale" -addControl "referenceTransformVelocityScale";
+	editorTemplate -endLayout;
+
+	editorTemplate -beginLayout "Deprecated" -collapse 1;
+		editorTemplate -addControl "overrideProximityCriterion" "qlUpdateProximityCriterion";
+		editorTemplate -addControl "proximityCriterion";
+		editorTemplate -addControl "overrideContactThreshold" "qlUpdateContactThreshold";
+		editorTemplate -addControl "contactThreshold";	
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEshapeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

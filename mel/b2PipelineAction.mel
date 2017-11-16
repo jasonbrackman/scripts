@@ -1,0 +1,631 @@
+
+//- 스냅샷, playblast 관련
+
+
+	//- b2TakeSnapshot //--------------------------------------------------------------------------------------------------------------------------//
+	// 현재 뷰포트를 스냅샷으로 저장 후 리네임.
+	global proc int b2TakeSnapshot()
+	{
+		print "b2TakeSnapshot.........................................................................................................procedure start\n";
+		string $tempDir = "c:/b2PipelineSnapshot/";
+		string $tempFileName = ($tempDir + "snapshot_tmp");
+		string $existingFiles[] = `getFileList -folder $tempDir -filespec "snapshot_*.jpg"`;
+		int $version = 1;
+		int $fileCount = `size($existingFiles)`;
+
+		if ($fileCount != 0)
+		{
+			int $latestVersion[] = b2GetVersionFromFile ($existingFiles[($fileCount - 1)], "");
+			$version = $latestVersion[0] + 1;
+		}
+		if ($fileCount < 6)
+		{
+			string $versionString = b2Pad($version, 3);
+			string $fileName = ($tempDir + "snapshot_" + $versionString + ".jpg");	
+			float $currentFrame = `currentTime -q`;
+			playblast -frame $currentFrame -format "image" -compression "jpg" -filename $tempFileName -showOrnaments false -viewer false -widthHeight 320 240 -percent 100;
+			string $tempFile[] = `getFileList -folder $tempDir -filespec "snapshot_tmp*"`;
+			$tempFileName = $tempDir + $tempFile[0];
+			sysFile -rename $fileName $tempFileName;
+			b2AddSnapshot2UI $fileName;
+		}
+		else
+		{
+			confirmDialog -message "스냅샷은 여섯장까지만 찍을 수 있어요!";
+		}
+		print "b2TakeSnapshot...........................................................................................................procedure end\n";
+		return 1;
+	}
+	//-/
+
+	
+	//- b2TakeSnapshotSingle //--------------------------------------------------------------------------------------------------------------------//
+	// 기능		- 현재 프레임의 playblast를 320x240으로 한 장 찍어 요청한 image UI에 업데이트
+	global proc b2TakeSnapshotSingle( string $uiName )
+	{
+		print "b2TakeSnapshotSingle...................................................................................................procedure start\n";
+		string $tmpDir = "c:/b2PipelineSnapshot/";
+		string $tmpFilename = $tmpDir + "snapshotSingle_tmp";
+		float $currFrame = `currentTime -q`;
+		playblast -frame $currFrame -format "image" -compression "jpg" -filename $tmpFilename -showOrnaments false -viewer false -widthHeight 320 240 -percent 100;
+		string $tmpFile[] = `getFileList -folder $tmpDir -filespec "snapshotSingle_tmp*"`;
+		string $filename = ( $tmpDir + "snapshotSingle.jpg" );
+		sysFile -rename $filename ($tmpDir + $tmpFile[0]);
+		image -edit -image $filename $uiName;
+		print "b2TakeSnapshotSingle.....................................................................................................procedure end\n";
+	}
+	
+	//-/
+	
+	
+	//- b2CopySnapshot //--------------------------------------------------------------------------------------------------------------------------//
+	//기능		- 임시 디렉토리의 스냅샷을 서버로 전송 후 리네임
+	//입력		- $type <-- 어셋인지/샷인지, $filename(full path) <--마야 파일명
+	//작동절차	- $filename에서 path정보를 추출하여 preview directory를 생성하고 임시 디렉토리에 있는 스냅샷과 .mov 파일을 리네임 하여 복사. 샷이라면 .mov는 마야 파일과 같은 디렉토리에 복사
+	//결과		- 성공여부 반환
+	//
+	global proc int b2CopySnapshot( string $type, string $fileName)
+	{
+		print "b2CopySnapshot.........................................................................................................procedure start\n";
+		string $tempDir = "c:/b2PipelineSnapshot/"; //로컬 드라이브의 스냅샷 디렉토리
+		string $mayaFileMode;
+		string $baseName;
+		string $dirName;
+		string $existingImg[];//로컬 드라이브의 스냅샷 리스트
+		string $existingMov[];//로컬 드라이브의 playblast 리스트		
+
+		$baseName = `basenameEx $fileName`;
+		$dirName = `dirname $fileName`;
+		$existingImg = `getFileList -folder $tempDir -filespec "*.jpg"`; 
+		$existingMov = `getFileList -folder $tempDir -filespec "*.mov"`; 		
+		
+		int $imgCount = size($existingImg);
+		int $movCount = size($existingMov);
+		int $imgChecksum = 0;
+		int $movChecksum = 0;
+		if ($imgCount > 0)
+		{
+			for ($i = 0; $i < $imgCount; $i++)
+			{
+				$version = b2Pad(($i + 1), 3);
+				string $imgName = ($dirName + "/" + $baseName + "_" + $version + ".jpg");
+				string $sourceImg = $tempDir + $existingImg[$i];
+				if (!`filetest -d $dirName`)
+				{
+					confirmDialog -title "Error!" -message "서버에 해당 버전의 디렉토리가 없습니다.";
+				}
+				sysFile -copy $imgName $sourceImg;
+				$imgChecksum += `filetest -f $imgName`;
+			}
+		}
+		if ($movCount > 0)
+		{
+			string $movName;
+			string $sourceMov = ($tempDir + $existingMov[0]);
+			if ($type == "ast")
+			{
+				$movName = ($dirName + "/" + $baseName + ".mov");
+				if (!`filetest -d $dirName`)
+				{
+					confirmDialog -title "Error!" -message "서버에 해당 버전의 디렉토리가 없습니다.";
+				}
+				sysFile -copy $movName $sourceMov;
+				$movChecksum += `filetest -f $movName`;
+			}
+			else if ($type == "sht")
+			{
+				$movName = ($dirName + "/" + $baseName + ".mov");
+			}
+		}
+		if ($imgChecksum == $imgCount && $movChecksum == $movCount)
+			return 1;
+		else
+			return 0;
+		print "b2CopySnapshot...........................................................................................................procedure end\n";
+	}
+	//-/
+
+	
+	//- b2Playblast //-----------------------------------------------------------------------------------------------------------------------------//
+	//
+	global proc b2Playblast( string $tab, string $key, string $fileLst[])
+	{
+		print "b2Playblast............................................................................................................procedure start\n";
+		string $pdpPathOrig = "c:/program files (x86)/pdPlayer/pdPlayer.exe";
+		string $qtpPathOrig = "c:/program files (x86)/quicktime/quicktimeplayer.exe";
+		string $pdpPathNative = `toNativePath $pdpPathOrig`;
+		string $qtpPathNative = `toNativePath $qtpPathOrig`;
+		string $pathField;
+		string $playerCommadn;
+		int $movCount;
+		if( $key == "single" )
+		{
+			$movCount = size($fileLst);
+		}
+		else
+		{
+			$movCount = size($fileLst);
+		}
+		int $pdPlayerCheck = `filetest -f $pdpPathOrig`;
+		int $qtPlayerCheck = `filetest -f $qtpPathOrig`;
+		if ( $movCount >= 1)
+		{
+			if($pdPlayerCheck)
+			{
+				$playerCommand = "start " + $pdpPathNative;			
+
+				for( $i = 0; $i < $movCount; $i++ )
+				{
+					$mov = toNativePath($fileLst[$i]);
+					if( $key == "single" )
+					{
+						$playerCommand += (" --attach " + $mov );
+					}
+					else if( $key == "seq" )
+					{
+						// if( $i == 0 )
+						// {
+							// $playerCommand += (" --attach " + $mov + " --timeline=" + $length + " --layer_select_last --layer_go_to_end" );
+						// }
+						// else
+						// {
+							// $playerCommand += (" --attach " + $mov + " --layer_select_first --layer_align_in --layer_go_to_out --workarea_set_end" );
+						// }
+						$playerCommand += ( " " + $mov + " --layer_position_after" );
+					}
+				}
+				print "$playerCommand =\n";
+				print $playerCommand;
+				print "\n";
+				system( $playerCommand );
+
+			}
+			else if ($qtPlayerCheck)
+			{
+
+				for($mov in $fileLst)
+				{
+					$playerCommand = "start " + $qtpPathNative;			
+					$mov = toNativePath($mov);
+					$playerCommand += (" " + $mov);
+					system( $playerCommand );
+				}
+			}
+		}
+		print "b2Playblast..............................................................................................................procedure end\n";
+	}
+	//-/
+
+//-/
+
+
+	// b2SaveScene
+	//기능		- scene file 저장
+	//입력		- $fileName <-- 파일명 (full path)
+	//작동절차 	- 전달받은 파일경로에 저장 후 열려있는 씬을 원래 이름으로 돌림.
+	//출력		- 저장 성공 여부를 반환
+	//-
+	global proc int b2SaveScene( string $fileName )
+	{
+		print "b2SaveShotDevelop...____________________________________________starting up procedure\n";
+		int $result;
+		string $origFileName = `file -q -sceneName`;
+		string $targetDir = `dirname $fileName`;
+		if (!`filetest -d $targetDir`)
+		{
+			sysFile -makeDir $targetDir;
+		}
+		file -rename $fileName;
+		file -type mayaAscii;
+		file -save -type mayaAscii;
+		int $result1 = `filetest -e $fileName`;
+		if ($result1 == 1)
+		{
+			$result = 1;
+		}
+		else 
+		{
+			$result = 0;
+		}
+		print "b2SaveShotDevelop...____________________________________________end of procedure\n";		
+		return $result;
+	}
+	//-/
+
+
+//- 기본 파일/폴더 조작기능 (create, delete, copy, move, rename 등등)
+
+	// b2DeleteDir
+	//-
+	global proc int b2DeleteDir (string $dirPath)
+	{
+		int $result;
+		int $slashEndCheck = `endsWith $dirPath "/"`;
+		if (!$slashEndCheck)
+		{
+			$dirPath += "/";
+		}
+
+		string $fileList[] = `getFileList -folder $dirPath -filespec "*"`;
+		int $fileListSize = size($fileList);
+		int $i = 0;
+		for ($eachFile in $fileList)
+		{
+			$eachFile = $dirPath + $eachFile;
+			int $dirTest = `filetest -d $eachFile`;
+			if ($dirTest)
+			{
+				b2DeleteDir $eachFile;
+				$i ++;
+				continue;
+			}
+			int $delResult = `sysFile -delete $eachFile`;
+			if ($delResult)
+			{
+				$i ++;
+			}
+			else
+			{
+				$result = 0;
+			}
+		}
+		if ($fileListSize == $i)
+		{
+			int $delDirResult = `sysFile -removeEmptyDir $dirPath`;
+			if ($delDirResult)
+			{
+				$result = 1;
+			}
+			else
+			{
+				$result = 0;
+			}
+		}
+		else
+		{
+			$result = 0;
+		}
+		
+		return $result;
+	}
+
+	//-/
+
+	
+	//b2CopyFile
+	//기능		- 파일을 정해진 위치로 복사
+	//입력		- $sourceFile, $targetFile
+	//작동절차	- 소스파일의 존재를 확인, 타겟 디렉토리도 확인한 후 없다면 생성, 그리고 복사.
+	//결과		- 성공여부 반환
+	//-
+	global proc int b2CopyFile( string $sourceFile, string $targetFile)
+	{
+		print "b2CopyFile...____________________________________________starting up procedure\n";
+		int $result;
+		int $sourceCheck = `filetest -e $sourceFile`;
+		int $targetCheck = `filetest -e $targetFile`;
+		string $targetDir = `dirname $targetFile`;
+		int $targetDirCheck = `filetest -d $targetDir`;
+		int $resultCP;
+		int $resultMD;
+		string $message;
+		if (!$sourceCheck)
+		{
+			$message = "복사할 소스 파일이 없습니다!\n" + $sourceFile;
+			confirmDialog -title "Error!" -message $message;
+			$result = 0;
+		}
+		else if ($targetCheck)
+		{
+			$message = ("다음 파일이 이미 존재합니다. 덮어쓸까요?\n" + $targetFile); 
+			string $overwriteConfirm = `confirmDialog -title "Error!" -message  $message
+				-button "Yes" -button "Cancel" -defaultButton "Cancel" -cancelButton "No" -dismissString "No"`;
+			if ($overwriteConfirm == "Yes")
+			{
+				$resultCP = `sysFile -copy $targetFile $sourceFile`;
+				if ($resultCP)
+				{
+					$result = 1;
+				}
+			}
+			else
+			{
+				$result = 0;
+			}
+		}
+		else if (!$targetDirCheck)
+		{
+			$resultMD = `sysFile -makeDir $targetDir`;
+			if ($resultMD)
+			{
+				$resultCP = `sysFile -copy $targetFile $sourceFile`;
+				if ($resultCP)
+				{
+					$result = 1;
+				}
+			}
+			else
+			{
+				$message = ("파일을 복사할 디렉토리를 생성할 수 없습니다!\n" + $targetDir);
+				confirmDialog -title "Error!" -message $message;
+				$result = 0;
+			}
+		}
+		else
+		{
+			$resultCP = `sysFile -copy $targetFile $sourceFile`;
+			if ($resultCP)
+			{
+				$result = 1;
+			}
+			else
+			{
+				$message = ("파일을 복사하지 못했습니다!\nSourceFile : " + $sourceFile + "\nTargetFile : " + $targetFile);
+				$result = 0;
+			}
+		}
+		print "b2CopySnapshot...____________________________________________end of procedure\n";
+		return $result;
+	}
+	//-/
+
+
+	//- b2MakeDef def.xml파일 생성
+	global proc b2MakeDef( string $fileName)
+	{
+		int $fileId = `fopen $fileName "w"`;
+		fprint $fileId "b2Pipeline valid directory\n";
+		fclose $fileId;	
+	}
+	//-/
+
+	// b2RemoveItem
+	// 기능		- 선택된 아이템 삭제(deleted 폴더로 이동)
+	// 입력		- $tab <-- 2 = asset, 3 = shot
+	//			  $val1, $val2, $val3, $val4 <-- UI 리스트에서 선택한 아이템
+	// 작동절차	- 패스워드 입력창을 띄워 입력 받은 패스워드를 확인 한 후 맞으면 해당 디렉토리를 deletedItems 디렉토리 아래에 옮김
+	// 출력		- 성공 여부
+	//-
+	global proc int b2RemoveItem (int $tab, string $val1, string $val2, string $val3, string $val4)
+	{
+		global string $delPassword;
+		string $originalPath;
+		if ($tab == 2)
+		{
+			$originalPath = `b2GetFileName $tab $val1 $val2 $val3 0 "folder" 0`;
+		}
+		else if ($tab == 3)
+		{
+			$originalPath = `b2GetFileName2 $val1 $val2 $val3 $val4 0 "folder" 0`;
+		}
+		string $projRoot = `optionVar -q  "projRoot"`;
+		string $projName = `optionVar -q  "selectedProjName"`;
+		string $deleteDir = (`optionVar -q "deletePath"`);
+		string $deletePath = ($projRoot + "/" + $projName + "/" + $deleteDir + "/");
+		string $confirmText = "진짜 지우려구요?\n(모든 하위 파일과 폴더는 `deletedItems` 디렉토리로 옮겨질 겁니다.)";
+		string $name = `basename $originalPath ""`;
+		string $inPassword = "wrong";
+		string $confirmation = "yes";
+		while ($inPassword != $delPassword)
+		{			
+			string $passwordInput = `promptDialog -t "패스워드!!!" -message "안전을 위해 패스워드가 필요합니다. \n패스워드를 알고 있더라도 한 번 더 생각해 주세요!\n삭제된 파일들은 `_deletedItems`로 옮겨집니다." 
+				-button "Delete!" -button "Cancel" 
+				-defaultButton "Cancel" -cancelButton "Cancel" -dismissString "Cancel"`;
+			if ($passwordInput == "Delete!")
+			{		
+				$inPassword = `promptDialog -q -text`;
+			}
+			else
+			{
+				$confirmation = "no";
+				break;
+			}
+		}
+		if ($confirmation == "yes")
+		{
+			if (!`filetest -d $deletePath`)
+			{
+				print "b2RemoveItem...ok";
+				sysFile -makeDir $deletePath;	
+			}
+			int $i;
+			int $isCurrent = 0;
+			string $newPath = $deletePath + $name + "_deleted_";
+			int $j = 0;
+			while (`filetest -d ($newPath + $j)`)
+			{
+				$j++;
+			}
+			$newPath = $newPath+$j;
+			int $result = `sysFile -rename $newPath $originalPath`;
+			if (!$result)
+				{
+					error("실패!!! 디렉토리 " + $originalPath + "를 `deletedItems`디렉토리로 옮길 수 없습니다.\n폴더나 파일을 사용중인것 같습니다.");
+					return 0;
+					print "b2RemoveItem...returnning int 0\n";
+				}
+			else
+			{
+	//			int $result2 = `b2RemoveArchive $tab $val1 $val2 $val3`;
+	//			return $result2;
+				return 1;
+			}
+		}
+		else
+			return 0;
+	}
+	//-/
+
+
+	//- b2CreateNewItem 현재 선택 된 프로젝트에 새 아이템 생성
+	//$mode = 1:빈 새 씬, 2:현재 선택 된 오브젝트를 첫 디벨롭으로 익스포트, 3:씬 전체를 첫 디벨롭으로 익스포트
+	global proc string b2CreateNewItem( int $tab, string $val1, string $val2, string $val3, string $mode)
+	{
+
+		string $error = "";
+		string $path;
+		if ($tab == 2)
+			$path = `b2GetFileName $tab $val1 $val2 $val3 0 "folder" 0`;
+		else if ($tab == 3)
+			$path = `b2GetFileName2 $val1 $val2 $val3 "" 0 "folder" 0`;
+		else
+			$path = "";
+		int $depth = `b2GetDepth $val1 $val2 $val3`;
+		print "$path =\n";
+		print $path;
+		print "\n";
+		print "$depth =\n";
+		print $depth;
+		print "\n";
+		string $baseName = `basename $path ""`;
+		string $parentDir = `b2GetFileName $tab $val1 $val2 $val3 0 "parentDir" 0`;
+		string $developDir = `b2GetFileName $tab $val1 $val2 $val3 0 "developDir" 0`;
+		string $releaseDir = `b2GetFileName $tab $val1 $val2 $val3 0 "releaseDir" 0`;
+		string $infoDir = `b2GetFileName $tab $val1 $val2 $val3 0 "infoDir" 0`;
+		string $destinationFile = `b2GetFileName $tab $val1 $val2 $val3 0 "nextDevelop" 0`;
+		string $category = `b2GetCategory $tab $val1 $val2 $val3`;
+		string $developVerTag = `optionVar -q "developVerTag"`;
+		string $releaseVerTag = `optionVar -q "releaseVerTag"`;
+		string $defFile = "_def.xml";
+		if ($depth&&size($path))
+		{
+			if (!isValidString($baseName, "([a-zA-Z0-9_-])*"))
+				$error += "Invalid " + interToUI($category)+" Name (공백문자나 특수문자는 사용할 수 없습니다)\n";
+			else if (`filetest -d $path`)
+				$error += (interToUI($category) + " \"" + $path + "\" already exists!\n");
+			else if (!`filetest -d $parentDir`)
+			{
+				if ($depth==2)
+					b2CreateNewItem $tab $val1 "" "" 1;
+				else if ($depth==3)
+					b2CreateNewItem $tab $val1 $val2 "" 1;
+				else
+					$error+=("Item\"" + $parentDir + "\" does not exist. Can't create new " + interToUI($category) + " under it\n");
+			}
+			if (size($error))
+			{
+				warning("b2CreateNewItem: " + $error);
+				return "";
+			}
+			else
+			{
+				sysFile -makeDir $path;
+				string $defFileName;
+			if (`size($val1)`)
+				{
+					$defFileName = ($path + $val1);
+					if (`size($val2)`)
+					{
+						$defFileName = ($path + $val2);
+						if(`size($val3)`)
+						{
+							$defFileName = ($path + $val3);
+						}
+					}
+			}
+				$defFileName += $defFile;
+
+				b2MakeDef $defFileName;
+				
+				if ($depth == 2)
+				{
+					sysFile -makeDir $path;
+				}
+				if ($depth == 3)
+				{
+						sysFile -makeDir $infoDir;;
+						sysFile -makeDir $developDir;
+						sysFile -makeDir $releaseDir;
+						optionVar -sv "b2CreationPath" ($path + "/");
+						optionVar -sv "b2CreationType" $category;
+						string $fileType;
+						if ($mode == 2)
+						{
+							file -exportAll -pr -type mayaAscii -ch 1 -chn 1 -con 1 -exp 1 -sh 1 $destinationFile;
+						}
+				}
+				return $path;	
+			}
+		}
+		else
+		{
+			warning "b2CreateNewItem : parameters incorrect. no new item created.";
+			return "";
+		}
+	}
+	//-/
+
+
+	// b2CreateNewShotItem
+	// 기능		- 현재 선택 된 프로젝트에 새 샷 아이템 생성
+	// 작동절차	- 입력값이 적절한지, 이미 해당 아이템이 생성되어 있지 않은지 확인 후 디렉토리를 생성/def.xml생성
+	// 입력		-
+	// 출력		-
+	//-
+	global proc string b2CreateNewShotItem( string $val1, string $val2, string $val3, string $val4 )
+	{
+		string $error = "";
+		string $path = `b2GetFileName2 $val1 $val2 $val3 $val4 0 "folder" 0`;
+		int $depth = `b2GetDepth2 $val1 $val2 $val3 $val4`;
+		string $baseName = `basename $path ""`;
+
+		 if ($depth&&size($path)) //입력값이 제대로 주어졌다면...
+		 {
+			if (!isValidString($baseName, "([a-zA-Z0-9_-])*")) //문자열이 적절치 않은 경우 에러메세지
+				$error += "공백문자나 특수문자는 사용할 수 없습니다\n";
+			else if (`filetest -d $path`) //이미 디렉토리가 있는 경우 에러메세지
+			{
+				$error += ( $path + " 디렉토리가 이미 존재합니다\n");
+			}
+			if (size($error)) //에러메세지가 생성되었다면 출력
+			{
+				warning("b2CreateNewShotItem: " + $error);
+				return "";
+			}
+			else //에러가 발생하지 않았다면 실행.
+			{
+				sysFile -makeDir $path; 
+				string $defFileName; //def.xml파일 경로(full path) 설정
+				switch ($depth)
+				{
+					case 1:
+						$defFileName = ($path + $val1);
+						break;
+					case 2:
+						$defFileName = ($path + $val2);
+						break;
+					case 3:
+						$defFileName = ($path + $val3);
+						break;
+					case 4:
+						$defFileName = ($path + $val4);
+						break;
+				}
+				$defFileName += "_def.xml";
+				b2MakeDef $defFileName;	//def.xml파일 생성	
+
+				if ($depth == 4) //샷 컴포넌트 레이어 생성인 경우 하위 디렉토리 생성
+				{
+					string $infoDir = `b2GetFileName2 $val1 $val2 $val3 $val4 0 "infoDir" 0`;
+					string $developDir = `b2GetFileName2 $val1 $val2 $val3 $val4 0 "developDir" 0`;
+					string $releaseDir = `b2GetFileName2 $val1 $val2 $val3 $val4 0 "releaseDir" 0`;
+					sysFile -makeDir $infoDir;
+					sysFile -makeDir $developDir;
+					sysFile -makeDir $releaseDir;
+				}
+				return $path;
+			}
+		}
+		else
+		{
+			warning "b2CreateNewItem : parameters are incorrect. no new item created.";
+			return "";
+		}
+	}
+	//-/
+
+	
+	
+//-/
+
+

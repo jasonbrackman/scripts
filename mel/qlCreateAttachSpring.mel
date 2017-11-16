@@ -1,0 +1,60 @@
+global proc string qlCreateAttachSpring() 
+{
+	string $ndoes[];
+	string $clothes[];
+	string $src_cloth;
+	string $dst_cloth;
+	string $node;
+	string $attachspring;
+	string $solver;
+	int $nv1[];
+	int $nv2[];
+
+	$clothes = qlGetClothes();
+	if(size($clothes) != 2) {
+		error "select cloth vertices and another cloth mesh";
+		return "";
+	}
+
+	$solver = qlGetSolver($clothes[0]);
+	if($solver != qlGetSolver($clothes[1]))
+	{
+		error "two vertices do not belong to a single solver";
+		return "";
+	}
+
+	$nodes = `ls -sl -o`;
+	$nv1 = `polyEvaluate -vc $nodes[0]`;
+	$nv2 = `polyEvaluate -vc $nodes[1]`;
+	if( ($nv1[0] > 0 && $nv2[0] >0) || ($nv1[0]==0 && $nv2[0]==0) )
+	{
+		error "select the VERTICES of the first cloth, and the POLYGON mesh of the second cloth";
+		return "";
+	}
+
+	if($nv1[0]>0)
+	{
+		$src_cloth = qlHasCloth($nodes[0]);
+		$dst_cloth = qlHasCloth($nodes[1]);
+	}
+	else
+	{
+		$src_cloth = qlHasCloth($nodes[1]);
+		$dst_cloth = qlHasCloth($nodes[0]);		
+	}
+
+	string $vi = `qlExpandVerIdx`;
+
+
+
+	$attachspring= `createNode qlAttachSpringShape`;
+	connectAttr ($src_cloth + ".outputMesh") ($attachspring+ ".sourceMesh");
+	connectAttr ($dst_cloth + ".outputMesh") ($attachspring+ ".targetMesh");
+
+	eval("setAttr "+$attachspring+".sourceVertexIds -type Int32Array "+$vi);
+	connectAttr -na ($attachspring+ ".spring")  ($solver + ".spring");
+	
+
+	select $attachspring;
+	return $attachspring;
+}

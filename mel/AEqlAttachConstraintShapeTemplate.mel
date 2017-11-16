@@ -1,0 +1,27 @@
+global proc  AEqlAttachConstraintShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "AttachConstraint Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "enableCollision";
+		editorTemplate -addControl "soft";
+		editorTemplate -addControl "stiffness";
+		editorTemplate -addControl "damping";
+		editorTemplate -suppress "inputMesh";
+		editorTemplate -suppress "vertexIndices";
+		editorTemplate -suppress "initPositions";
+		editorTemplate -suppress "outputPositions";
+		editorTemplate -suppress "filterMatrix";
+		editorTemplate -suppress "constraint";
+		editorTemplate -suppress "update";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

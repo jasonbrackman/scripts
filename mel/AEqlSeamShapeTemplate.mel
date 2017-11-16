@@ -1,0 +1,19 @@
+global proc  AEqlSeamShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Seam Property" -collapse 0;
+		editorTemplate -addControl "creaseAngle";
+		editorTemplate -addControl "invertSeamDirection";
+		editorTemplate -suppress "inputCurve1";
+		editorTemplate -suppress "inputCurve2";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

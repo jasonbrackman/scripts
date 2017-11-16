@@ -1,0 +1,64 @@
+global proc string qlMergeCloth() 
+{
+	int $i;
+	string $plugs[];
+	string $nodes[];
+	string $parents[];
+	string $pattern1, $pattern2;
+	string $plug1, $plug2;
+	string $disc1, $disc2;
+	string $sim1, $sim2;
+
+	$nodes = qlGetDiscretizers();
+	if(size($nodes)<1) {
+		error "select two panel-based cloth meshes";
+		return "";
+	}
+	if(size($nodes)<2) 
+	{
+		error "select two panel-based cloth meshes";
+		return $nodes[0];
+	}
+	if(size($nodes)>2)
+	{
+		warning "only the first two cloth meshes are merged.";
+	}
+
+	$disc1 = $nodes[0];
+	$disc2 = $nodes[1];
+
+	if($disc1 != $disc2)
+	{
+		$plugs = `listConnections -s 1 -d 0 -t "qlPattern" -p 1 ($disc2+".inputPattern")`;
+		for($i=0;$i<size($plugs);$i++)
+		{
+			connectAttr -na $plugs[$i] ($disc1+".inputPattern");
+		}
+		$plugs = `listConnections -s 1 -d 0 -t "qlSeamShape" -p 1 ($disc2+".inputSeam")`;
+		for($i=0;$i<size($plugs);$i++)
+		{
+			connectAttr -na $plugs[$i] ($disc1+".inputSeam");
+		}
+	}
+
+	if($disc1 != $disc2) 
+	{
+		$nodes = `listHistory -f 1 $disc2`;
+		for($i=1;$i<size($nodes);$i++)
+		{
+			$parents = `listRelatives -p $nodes[$i]`;
+			if(size($parents)>0) 
+			{
+				delete $parents[0];
+			}
+			else 
+			{
+				delete $nodes[$i];
+			}
+		}
+	}
+
+	
+	select $disc1;
+	return $disc1;
+}

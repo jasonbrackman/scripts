@@ -1,0 +1,54 @@
+global proc int qlUpdateInitialPose() 
+{
+	string $sel[] = `ls -sl -o`;
+	string $sim;
+	string $cloth;
+	string $mesh;
+	string $nodes[];
+	string $solver;
+
+	switch(size($sel))
+	{
+		case 0:
+			error "select a cloth mesh (and a reference mesh optionally)";
+			return 0;
+		case 1:
+			$cloth = qlGetCloth();
+			$nodes = `ls -sl -o`;
+			$mesh = $nodes[0];
+			if($cloth != "")
+			{
+				currentTime -e (`getAttr ($cloth+".startTime")`-1);
+				qlTruncateSimCache($cloth);
+				qlCommand -n $cloth -a $mesh -c "updateInitialPose";
+				if(nodeType($mesh) == "transform") xform -t 0 0 0 -ro 0 0 0 -s 1 1 1 $mesh;
+				currentTime -e `getAttr ($cloth+".startTime")`;
+				dgeval ($cloth+".outputMesh");
+			}
+			else 
+			{
+				error "select a cloth mesh (and a reference mesh optionally)";
+				return 0;
+			}
+			break;
+		case 2:
+			$nodes = qlGetClothAndObject();
+			if(size($nodes) != 2)
+			{
+				error "select a cloth mesh (and a reference mesh optionally)";
+				return 0;
+			}
+			currentTime -e (`getAttr ($nodes[0]+".startTime")`);
+			qlTruncateSimCacheWithCurrFrame($nodes[0]);
+			if($sel[0] == $nodes[1]) $mesh = $sel[1]; else $mesh = $sel[0];
+			if(nodeType($mesh) == "transform") xform -t 0 0 0 -ro 0 0 0 -s 1 1 1 $mesh;
+			qlCommand -n $nodes[0] -a $nodes[1] -c "updateInitialPose";
+			currentTime -e `getAttr ($nodes[0]+".startTime")`;
+			dgeval ($nodes[0]+".outputMesh");
+			break;
+		default :
+			error "select a cloth mesh (and a reference mesh optionally)";
+			return 0;
+	}
+	return 1;
+}

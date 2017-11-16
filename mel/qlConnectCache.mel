@@ -1,0 +1,44 @@
+global proc int qlConnectCacheCB(string $attrname, string $filename, string $filetype)
+{
+	setAttr $attrname -type "string" $filename;
+	return true;
+}
+global proc string qlConnectCache() 
+{
+	string $nodes[];
+	string $cache;
+	string $mesh;
+	string $smesh;
+	string $transfer;
+
+	$nodes = `ls -sl -o`;
+	if(size($nodes) != 1)
+	{
+		error "select a polygonal object";
+		return "";
+	}
+
+	$mesh = qlGetShape($nodes[0]);
+
+	if(nodeType($mesh) != "mesh")
+	{
+		error "not a polygonal object";
+		return "";
+	}
+
+	$cache = `createNode qlCache`;
+	delete -ch $mesh;
+	$nodes = `duplicate $mesh`;
+	$smesh = $nodes[0];
+	hide $smesh;
+	connectAttr ($smesh + ".outMesh") ($cache+ ".input");
+	connectAttr time1.outTime ($cache+".time");
+	connectAttr ($cache+ ".output") ($mesh + ".inMesh");
+	setAttr ($cache+".startTime") `playbackOptions -q -min`;
+
+	string $cmd;
+	$cmd = "qlConnectCacheCB "+$cache+".cacheName";
+	fileBrowser($cmd, "Open Cache", "", 0);
+
+	return $cache;
+}

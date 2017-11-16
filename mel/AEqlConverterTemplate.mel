@@ -1,0 +1,29 @@
+global proc qlUpdatemetricFromUV(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".metricFromUV" )`;	
+	editorTemplate -dimControl $nodeName "uScale" (!$override);
+	editorTemplate -dimControl $nodeName "vScale" (!$override);
+}
+
+
+global proc  AEqlConverterTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Converter Property" -collapse 0;
+		editorTemplate -addControl "preserveWrinkle";
+		editorTemplate -io;
+		editorTemplate -addControl "metricFromUV" "qlUpdatemetricFromUV";
+		editorTemplate -addControl "uScale";
+		editorTemplate -addControl "vScale";
+		editorTemplate -suppress "input";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

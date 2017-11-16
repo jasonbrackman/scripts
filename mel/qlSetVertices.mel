@@ -1,0 +1,34 @@
+global proc int qlSetVertices()
+{
+	string $constraint;
+	string $poslist[];
+
+	$constraint = qlGetConstraint();
+	if($constraint== "") {
+		error "select a constraint";
+		return 0;
+	}
+	
+	string $vi = `qlExpandVerIdx`;
+	string $vp = `qlExpandVerPos`;
+
+	if($vi=="0") return 0;
+
+	if(nodeType($constraint) == "qlAttachConstraintShape")
+	{
+		setAttr ($constraint+".update") true;
+	}
+	else
+	{
+		string $parents[] = `listRelatives -p $constraint`;
+		if(tokenizeList($vp, $poslist))
+			xform -piv ($poslist[1]+"cm") ($poslist[2]+"cm") ($poslist[3]+"cm") $parents[0];
+	}
+
+	eval("setAttr "+$constraint+".vertexIndices -type Int32Array "+$vi);
+	eval("setAttr "+$constraint+".initPositions -type vectorArray "+$vp);
+
+	selectMode -o;
+	select -r $constraint;
+	return 1;
+}

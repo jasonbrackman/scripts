@@ -1,0 +1,48 @@
+global proc b2Pipeline()
+{
+/* 	string $runSwitch = `confirmDialog -title "" -message "b2Pipeline 개발버전을 실행할까요?" -button "Yes" -button "No"`;
+	if ($runSwitch == "Yes")
+	{
+		string $comName = `getenv "COMPUTERNAME"`;
+		string $scriptPath = "N:/b1Env/maya/2012/scripts/";
+		switch( $comName )
+		{
+			case "PC-SHKIM-01":
+				$scriptPath = "D:/_RND/testEnv/maya/2012/scripts/";
+			break;
+			case "PC-SHKIM-02":
+				$scriptPath = "E:_RND/testEnv/maya/2012/scripts/";
+			break;
+		}
+		string $b2PipelineDir = "b2Pipeline";	
+		b2SourceModule ($scriptPath + $b2PipelineDir + "/");
+		eval "b2PipelineUI";
+	}
+	else
+	{
+	
+	} */
+	string $scriptPath = "N:/b1Env/maya/2014/scripts/";
+	string $b2PipelineDir = "b2Pipeline";	
+	b2SourceModule ($scriptPath + $b2PipelineDir + "/");
+	eval "b2PipelineUI";
+}
+
+global proc b2SourceModule( string $path )
+{
+	source "N:/b1Env/maya/2014/scripts/b1Model/b1ReassignMaterials.mel";
+	string $melFiles[] = `getFileList -folder $path -filespec "*.mel"`; 
+	string $eachFile; 
+	print ("----- Sourcing " + $path + "------\n"); 
+	print ("//////////////////////////////////////////////////////\n");
+	for ($eachFile in $melFiles) 
+	{ 
+		if( $eachFile != "b2Pipeline.mel" )
+		{
+			string $scriptFile = ($path + $eachFile); 	
+			string $cmdString = ("source \"" + $scriptFile + "\"");
+			print ("//// Source: " + $cmdString + "\n"); 
+			catch(`eval $cmdString`);
+		}
+	} 
+}

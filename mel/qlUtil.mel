@@ -1,0 +1,1040 @@
+global proc string qlGetShape(string $node)
+{
+	if(nodeType($node)=="transform")
+	{
+		string $nodes[];
+		$nodes = `listRelatives -s -pa $node`;
+		return $nodes[0];
+	}
+	else
+	{
+		return $node;
+	}
+	return "";
+}
+
+global proc string qlGetOutputMesh(string $cloth)
+{
+	string $nodes[];
+	string $node;
+	$nodes = `listHistory -f 1 -bf ($cloth+".outputMesh")`;
+	for($node in $nodes)
+	{
+		if(nodeType($node) == "mesh")
+		{
+			return $node;
+		}
+	}
+	return "";
+}
+
+global proc string [] qlGetHistory(string $node, string $type, int $f)
+{
+	string $ret[];
+	string $nodes[];
+	int $i=0;
+	$nodes = `listHistory -bf -future $f $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == $type) { $ret[$i] = $cnode; $i++; }
+	}
+	return $ret;
+}
+global proc string qlHasSimulator(string $node)
+{
+	string $nodes[];
+	$nodes = `listHistory -bf $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == "qlSolverShape")
+		{
+			return $cnode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasFutureSimulator(string $node)
+{
+	string $nodes[];
+	$nodes = `listHistory -bf -future 1 $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == "qlSolverShape")
+		{
+			return $cnode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasCloth(string $node)
+{
+	string $nodes[];
+	
+	// first check if this is a solver node
+	if(nodeType(qlGetShape($node)) == "qlSolverShape")
+	{
+		return "";
+	}
+	
+	$nodes = `listHistory -bf $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == "qlClothShape")
+		{
+			return $cnode;
+		}
+	}
+	return "";
+}
+
+
+global proc string qlHasFutureCloth(string $node)
+{
+	string $nodes[];
+	
+	$nodes = `listHistory -bf -future 1 $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == "qlClothShape")
+		{
+			return $cnode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasInputOfType(string $node, string $type)
+{
+	string $nodes[];
+
+	$nodes = `listHistory -bf $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == $type)
+		{
+			return $cnode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasFutureInputOfType(string $node, string $type)
+{
+	string $nodes[];
+
+	$nodes = `listHistory -bf -future 1 $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == $type)
+		{
+			return $cnode;
+		}
+	}
+	return "";
+}
+
+
+global proc string qlHasCollider(string $node)
+{
+	string $nodes[];
+	$nodes = `listHistory -bf -f 1 $node`;
+	for($onode in $nodes)
+	{
+		if(nodeType($onode) == "qlColliderShape")
+		{
+			return $onode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasPastCollider(string $node)
+{
+	string $nodes[];
+	$nodes = `listHistory -bf $node`;
+	for($onode in $nodes)
+	{
+		if(nodeType($onode) == "qlColliderShape")
+		{
+			return $onode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasGoalConstraint(string $node)
+{
+	string $nodes[];
+	$nodes = `listHistory -bf -f 1 $node`;
+	for($onode in $nodes)
+	{
+		if(nodeType($onode) == "qlGoalConstraintShape")
+		{
+			return $onode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasPastGoalConstraint(string $node)
+{
+	string $nodes[];
+	$nodes = `listHistory -bf $node`;
+	for($onode in $nodes)
+	{
+		if(nodeType($onode) == "qlGoalConstraintShape")
+		{
+			return $onode;
+		}
+	}
+	return "";
+}
+
+
+
+global proc string qlHasDiscretizer(string $node)
+{
+	string $nodes[];
+	$nodes = `listHistory -bf $node`;
+	for($cnode in $nodes)
+	{
+		if(nodeType($cnode) == "qlDiscretizer")
+		{
+			return $cnode;
+		}
+	}
+	return "";
+}
+
+global proc string qlHasCollisionRelationNode(string $obj1, string $obj2)
+{
+	string $nodes[];
+	string $nodes2[];
+	
+	$nodes = `listConnections ($obj1+".cr")`;
+	for($node in $nodes)
+	{
+		$nodes2 = `listConnections -sh 1 $node`;
+		for($node2 in $nodes2)
+		{
+			if($obj2 == $node2) 
+			{
+				return $node;
+			}
+		}
+	}
+	return "";
+}
+
+global proc string qlGetSolver(string $cloth)
+{
+	string $nodes[];
+	
+	$nodes = `listConnections -sh 1 ($cloth+".inputGeomChangeNotify")`;
+	if(size($nodes)>0)
+	{
+		return $nodes[0];
+	}
+	else
+	{	
+		return "";
+	}
+}	
+	
+global proc string qlGetSimulator() 
+{
+	string $selectionlist[];
+	string $node;
+	string $sim;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return "";
+	}
+	$node = $selectionList[0];
+	if( ($sim = `qlHasSimulator($node)`) != "") return $sim;
+	return "";
+}
+
+global proc string qlGetCloth() 
+{
+	string $selectionlist[];
+	string $node;
+	string $sim;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return "";
+	}
+	$node = $selectionList[0];
+	if( ($sim = `qlHasCloth($node)`) != "") return $sim;
+	return "";
+}
+
+global proc string[] qlGetTwoClothes() 
+{
+	string $selectionlist[];
+	string $node;
+	string $clothes[];
+	int $i;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return $clothes;	
+	}
+	
+	$i=0;
+	for($node in $selectionList)
+	{
+		$clothes[$i] = `qlHasCloth($node)`;		
+		$i++;
+	}
+	if($i==0) $clothes[0]="";
+	if($i<2) $clothes[1]=$clothes[0];
+	
+	return $clothes;
+}
+
+global proc string[] qlGetClothes() 
+{
+	string $selectionlist[];
+	string $node;
+	string $cloth;
+	string $clothes[];
+	int $i;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return $clothes;	
+	}
+	
+	$i=0;
+	for($node in $selectionList)
+	{
+		$cloth = qlHasCloth($node);
+		if($cloth != "") {
+			$clothes[$i] = `qlHasCloth($node)`;		
+			$i++;
+		}
+	}
+	
+	return $clothes;
+}
+
+global proc string[] qlGetFutureClothes() 
+{
+	string $selectionlist[];
+	string $node;
+	string $cloth;
+	string $clothes[];
+	int $i;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return $clothes;	
+	}
+	
+	$i=0;
+	for($node in $selectionList)
+	{
+		$cloth = qlHasFutureCloth($node);
+		if($cloth != "") {
+			$clothes[$i] = `qlHasFutureCloth($node)`;		
+			$i++;
+		}
+	}
+	
+	return $clothes;
+}
+
+global proc string[] qlGetTwoClothesOfSpring(string $spring)
+{
+	string $clothes1[];
+	string $clothes2[];
+	string $clothes[];
+	
+	$clothes1 = `listConnections -sh 1 ($spring+".inMesh1")`;
+	$clothes2 = `listConnections -sh 1 ($spring+".inMesh2")`;
+	
+	if(size($clothes1)>0) $clothes[0] = $clothes1[0]; else $clothes[0]="";
+	if(size($clothes2)>0) $clothes[1] = $clothes2[0]; else $clothes[1]="";
+	
+	return $clothes;	
+}
+
+global proc string qlGetMeshMixer() 
+{
+	string $selectionlist[];
+	string $node;
+	string $sim;
+	string $type;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a mixed mesh";
+		return "";
+	}
+	$node = $selectionList[0];
+	$type = "qlMeshMixer";
+	$sim = `qlHasInputOfType $node $type`;
+	if( $sim != "") return $sim;
+	return "";
+}
+
+global proc string qlGetFieldFilter() 
+{
+	string $selectionlist[];
+	string $node;
+	string $sim;
+	string $type;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a filed filter or filter weight mesh";
+		return "";
+	}
+	$node = $selectionList[0];
+	$shape = qlGetShape($node);
+	$type = "qlFieldFilterShape";
+	if(nodeType($shape)==$type) return $shape;
+	$sim = `qlHasInputOfType $node $type`;
+	if( $sim != "") return $sim;
+	return "";
+}
+
+global proc string qlGetCollider() 
+{
+	string $selectionlist[];
+	string $node;
+	string $collider;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a collider mesh";
+		return "";
+	}
+	$node = $selectionList[0];
+	$shape = qlGetShape($node);
+
+	if(nodeType($shape)=="qlColliderShape") return $shape;
+
+	if(nodeType(qlGetShape($node))!="mesh")
+	{
+		error ("selected object : "+$node+ " is not a collider mesh");
+		return "";
+	}
+
+	if( ($collider = `qlHasCollider($node)`) != "") return $collider;
+	return "";
+}
+
+
+global proc string qlGetPattern() 
+{
+	string $selectionlist[];
+	string $node;
+	string $collider;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a pattern";
+		return "";
+	}
+	$node = $selectionList[0];
+	$shape = qlGetShape($node);
+
+	if(nodeType($shape)=="qlPattern") 
+	{
+		return $shape;
+	}
+	else
+	{
+		error ("selected object : "+$shape+ " is not a pattern node");
+		return "";
+	}
+}
+
+global proc string qlGetPastCollider() 
+{
+	string $selectionlist[];
+	string $node;
+	string $collider;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a collider mesh";
+		return "";
+	}
+	$node = $selectionList[0];
+	$shape = qlGetShape($node);
+
+	if(nodeType($shape)=="qlColliderShape") return $shape;
+
+	if(nodeType(qlGetShape($node))!="mesh")
+	{
+		error ("selected object : "+$node+ " is not a collider mesh");
+		return "";
+	}
+
+	if( ($collider = `qlHasPastCollider($node)`) != "") return $collider;
+	return "";
+}
+
+global proc string qlGetGoalConstraint() 
+{
+	string $selectionlist[];
+	string $node;
+	string $constraint;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a goal constraint (mesh)";
+		return "";
+	}
+	$node = $selectionList[0];
+	$shape = qlGetShape($node);
+
+	if(nodeType($shape)=="qlGoalConstraintShape") return $shape;
+
+	if(nodeType(qlGetShape($node))!="mesh")
+	{
+		error ("selected object : "+$node+ " is not a goal constraint mesh");
+		return "";
+	}
+
+	if( ($constraint = `qlHasGoalConstraint($node)`) != "") return $constraint;
+	return "";
+}
+
+global proc string qlGetPastGoalConstraint() 
+{
+	string $selectionlist[];
+	string $node;
+	string $constraint;
+
+	$selectionList=`ls -sl -o`;
+	if(size($selectionList) < 1) {
+		error "select a goal constraint (mesh)";
+		return "";
+	}
+	$node = $selectionList[0];
+	$shape = qlGetShape($node);
+
+	if(nodeType($shape)=="qlGoalConstraintShape") return $shape;
+
+	if(nodeType(qlGetShape($node))!="mesh")
+	{
+		error ("selected object : "+$node+ " is not a goal constraint mesh");
+		return "";
+	}
+
+	if( ($constraint = `qlHasPastGoalConstraint($node)`) != "") return $constraint;
+	return "";
+}
+
+global proc string[] qlGetClothAndObject()
+{
+	string $selectionlist[];
+	string $node, $cnode;
+	string $nodes[];
+	string $ret[];
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) != 2) 
+	{
+		error "select a cloth and a mesh";
+		return $ret;
+	}
+	for($node in $selectionList)
+	{
+		if(($cnode= `qlHasCloth($node)`) != "")
+		{
+			if($ret[0] == "") $ret[0] = $cnode; else $ret[1] = $node; 
+		}
+		else 
+		{
+			$ret[1] = $node;
+		}
+	}
+	return $ret;
+}
+
+global proc string[] qlGetSimulatorAndObject()
+{
+	string $selectionlist[];
+	string $node, $cnode;
+	string $nodes[];
+	string $ret[];
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) != 2) 
+	{
+		error "select a cloth and a mesh";
+		return $ret;
+	}
+	for($node in $selectionList)
+	{
+		if(($cnode= `qlHasSimulator($node)`) != "")
+		{
+			if($ret[0] == "") $ret[0] = $cnode; else $ret[1] = $node; 
+		}
+		else 
+		{
+			$ret[1] = $node;
+		}
+	}
+	return $ret;
+}
+global proc string[] qlGetSimulatorAndObjects()
+{
+	string $selectionlist[];
+	string $node, $cnode;
+	string $nodes[];
+	string $ret[];
+	int $ncol;
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) < 2) 
+	{
+		error "select a cloth and a collision mesh(es)";
+		return $ret;
+	}
+	$ncol=1;
+	for($node in $selectionList)
+	{
+		if(($cnode= `qlHasSimulator($node)`) != "")
+		{
+			if($ret[0] == "") $ret[0] = $cnode; else $ret[$ncol++] = $node; 
+
+		}
+		else 
+		{
+			$ret[$ncol++] = $node;
+		}
+	}
+	return $ret;
+}
+global proc string[] qlGetSimulators() 
+{
+	string $selectionlist[];
+	string $node;
+	string $nodes[];
+	string $sim;
+	string $sims[];
+	int $i;
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return $sims;
+	}
+	$i=0;
+	for ($node in $selectionList)
+	{
+		if( ($sim = `qlHasSimulator($node)`) != "")
+		{
+			$sims[$i] = $sim;
+			$i++;
+		}
+	}
+	
+	$sims = stringArrayRemoveDuplicates($sims);
+
+	return $sims;
+}
+
+global proc string[] qlGetFutureSimulators() 
+{
+	string $selectionlist[];
+	string $node;
+	string $nodes[];
+	string $sim;
+	string $sims[];
+	int $i;
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return $sims;
+	}
+	$i=0;
+	for ($node in $selectionList)
+	{
+		if( ($sim = `qlHasFutureSimulator($node)`) != "")
+		{
+			$sims[$i] = $sim;
+			$i++;
+		}
+	}
+	
+	$sims = stringArrayRemoveDuplicates($sims);
+
+	return $sims;
+}
+
+global proc string[] qlGetClothesBelongToThisSolver(string $solver)
+{
+	string $clothes[];
+	string $nodes[];
+	string $node;
+	string $shape;
+	
+	$nodes = `listHistory -lv 1 $solver`;
+	for($node in $nodes)
+	{
+		$shape = qlGetShape($node);
+		if(nodeType($shape) == "qlClothShape")
+		stringArrayInsertAtIndex(0, $clothes, $shape);
+	}
+	
+	return $clothes;
+}
+global proc string[] qlGetDiscretizers() 
+{
+	string $selectionlist[];
+	string $node;
+	string $nodes[];
+	string $disc;
+	string $discs[];
+	int $i;
+
+	$selectionList=`ls -sl -o`;
+
+	if(size($selectionList) < 1) {
+		error "select a cloth";
+		return $discs;
+	}
+	$i=0;
+	for ($node in $selectionList)
+	{
+		if( ($disc = `qlHasDiscretizer($node)`) != "")
+		{
+			$discs[$i] = $disc;
+			$i++;
+		}
+	}
+
+	return $discs;
+}
+global proc string qlGetField()
+{
+	string $selectionList[];
+	string $node;
+	string $ntype;
+
+	$selectionList=`ls -sl -o`;
+	
+	if(size($selectionList) == 0) {
+		error "select a field node";
+		return "";
+	}
+
+	for ($node in $selectionList)
+	{
+		$ntype = nodeType($node);
+		if(gmatch($ntype, "*[fF]ield*")==1)
+		{
+			return $node;
+		}
+	}
+	return "";
+}
+
+global proc string qlGetFluid()
+{
+	string $selectionList[];
+	string $node, $shapenode;
+	string $ntype;
+
+	$selectionList=`ls -sl -o`;
+	
+	if(size($selectionList) == 0) {
+		error "select a field node";
+		return "";
+	}
+
+	for ($node in $selectionList)
+	{
+		$shapenode = qlGetShape($node);
+		$ntype = nodeType($shapenode);
+		if($ntype == "fluidShape")
+		{
+			return $shapenode;
+		}
+	}
+	return "";
+}
+
+global proc string qlGetConstraint()
+{
+	string $selectionList[];
+	string $node;
+
+	$selectionList=`ls -sl -o`;
+	
+	if(size($selectionList) == 0) {
+		error "select a constraint";
+		return "";
+	}
+
+	for ($node in $selectionList)
+	{
+		$node = qlGetShape($node);
+		if( nodeType($node) == "qlPointConstraintShape" ||
+			nodeType($node) == "qlLineConstraintShape" ||
+			nodeType($node) == "qlPlaneConstraintShape" ||
+			nodeType($node) == "qlAttachConstraintShape")
+			{
+				return $node;
+			}
+	}
+	return "";
+}
+
+global proc int qlGetLogicalIndex(string $plug_name)
+{
+	string $pat;
+	int $ret;	
+	
+	$pat = `match "\[[0-9]+\]" $plug_name`;
+	
+	$ret = `match "[0-9]+" $pat`;
+	
+	return $ret;
+	
+}
+
+global proc string[] qlGetCurvesFromSelection()
+{
+	string $selectionList[];
+	string $curveList[];
+	string $shapes[];
+	int $i;
+	
+	$selectionList=`ls -sl -o`;
+
+	for($i=0;$i<size($selectionList);$i++)
+	{
+		$shapes = `listRelatives -f -ad -typ "nurbsCurve" $selectionList[$i]`;
+		appendStringArray($curveList, $shapes, size($shapes));
+	}
+	
+	return $curveList;
+}
+
+global proc string qlValidateSolver(string $solver)
+{
+	global string $qlCurrentSolver;
+	string $ret;
+	
+	if( objExists($solver) && nodeType($solver)=="qlSolverShape" ) {
+		$qlCurrentSolver = $solver;
+		qlUpdateQualothSolverList();
+		return $qlCurrentSolver;
+	} else if($solver=="New Solver") {
+		$qlCurrentSolver = `createNode qlSolverShape`;
+		connectAttr time1.outTime ($qlCurrentSolver+".currentTime");	
+		setAttr ($qlCurrentSolver+".startTime") `currentTime -q`;	
+		qlUpdateQualothSolverList();		
+		return $qlCurrentSolver;
+	} else {
+		$qlCurrentSolver = `createNode -n $solver qlSolverShape`;
+		connectAttr time1.outTime ($qlCurrentSolver+".currentTime");	
+		setAttr ($qlCurrentSolver+".startTime") `currentTime -q`;	
+		qlUpdateQualothSolverList();		
+		return $qlCurrentSolver;
+	}
+}
+
+global proc int qlTruncateSimCache(string $sim)
+{
+	string $pfcn = `getAttr -x ($sim+".pfcn")`;
+	string $pfcf = `getAttr -x ($sim+".pfcf")`;
+	if($pfcn=="")
+	{
+		$pfcn = `qlCommand -n $sim -c "getResolvedCacheName"`;
+	}
+	if($pfcf=="")
+	{
+		$pfcf = `qlCommand -n $sim -c "getResolvedCacheFolder"`;
+	}
+	
+	float $curr_time = `currentTime -q`;
+	float $frame_time;	
+	//chdir $pfcf;
+	string $cfiles[] = `getFileList -folder ($pfcf+"/") -filespec ($pfcn+".*")`;
+	string $cfile;
+	string $tokens[], $pat, $subframe_pat;
+	for($cfile in $cfiles)
+	{
+		$pat = `match "\\.-*[0-9]+\\.[0-9]+$" $cfile`;
+		if($pat != "")
+		{
+			$subframe_pat = substring($pat, 2, size($pat));
+			$frame_time = $subframe_pat;
+			if($frame_time>$curr_time)
+			{
+				sysFile -delete ($pfcf+"/"+$cfile);
+			}
+		}
+		else
+		{
+			$pat = `match "-*[0-9]+$" $cfile`;
+			if($pat != "")
+			{
+				$frame_time = $pat;
+				if($frame_time>$curr_time)
+				{
+					sysFile -delete ($pfcf+"/"+$cfile);
+				}
+			}
+		}			
+	}
+	return 1;
+}
+
+global proc int qlTruncateSimCacheWithCurrFrame(string $sim)
+{
+	string $pfcn = `getAttr -x ($sim+".pfcn")`;
+	string $pfcf = `getAttr -x ($sim+".pfcf")`;
+	if($pfcn=="")
+	{
+		$pfcn = `qlCommand -n $sim -c "getResolvedCacheName"`;
+	}
+	if($pfcf=="")
+	{
+		$pfcf = `qlCommand -n $sim -c "getResolvedCacheFolder"`;
+	}
+	
+	float $curr_time = `currentTime -q`;
+	float $frame_time;	
+	//chdir $pfcf;
+	string $cfiles[] = `getFileList -folder ($pfcf+"/") -filespec ($pfcn+".*")`;
+	string $cfile;
+	string $tokens[], $pat, $subframe_pat;
+	for($cfile in $cfiles)
+	{
+		$pat = `match "\\.-*[0-9]+\\.[0-9]+$" $cfile`;
+		if($pat != "")
+		{
+			$subframe_pat = substring($pat, 2, size($pat));
+			$frame_time = $subframe_pat;
+			if($frame_time>=$curr_time)
+			{
+				sysFile -delete ($pfcf+"/"+$cfile);
+			}
+		}
+		else
+		{
+			$pat = `match "-*[0-9]+$" $cfile`;
+			if($pat != "")
+			{
+				$frame_time = $pat;
+				if($frame_time>=$curr_time)
+				{
+					sysFile -delete ($pfcf+"/"+$cfile);
+				}
+			}
+		}			
+	}
+	return 1;
+}
+
+global proc string[] qlConvert31to32() 
+{
+	string $clothes[];
+	string $cloth;
+	string $solver;
+	string $solvers[];
+	string $plugs[];
+	string $node;
+	int $mi;
+		
+	$solvers=`ls -o -typ qlSolverShape`;
+
+	if(size($solvers) < 1) {
+		error "no cloth";
+		return $solvers;
+	}
+	
+
+	for($solver in $solvers)
+	{
+		$clothes = qlGetClothesBelongToThisSolver($solver);
+		for($cloth in $clothes)
+		{
+			$plugs = `listConnections -p 1 ($cloth+".currentState")`;
+			if(size($plugs)==0) continue;
+			$mi = qlGetLogicalIndex($plugs[0]);
+			connectAttr ($cloth+".clothState") ($solver+".clothState["+$mi+"]") ;
+		}		
+	}
+	
+	return $solvers;
+}
+
+global proc qlShowStrain()
+{
+	string $meshes[];
+	string $mesh;
+	string $shape;
+	string $cloth;
+	string $clothes[];
+	
+	$meshes = `ls -sl -o`;
+	for($mesh in $meshes)
+	{
+		$cloth = qlHasCloth($mesh);
+		if($cloth != "")
+		{
+			$shape = qlGetShape($mesh);
+			if(nodeType($shape) == "mesh")
+			{
+				setAttr ($cloth+".showStrain") 1;
+				setAttr ($shape+".displayColors") 1;
+			}		
+		}
+	}
+	//currentTime -e `currentTime -q`;
+}
+
+global proc qlHideStrain()
+{
+	string $meshes[];
+	string $mesh;
+	string $shape;
+	string $cloth;
+	string $clothes[];
+	
+	$meshes = `ls -sl -o`;
+	for($mesh in $meshes)
+	{
+		$cloth = qlHasCloth($mesh);
+		if($cloth != "")
+		{
+			$shape = qlGetShape($mesh);
+			if(nodeType($shape) == "mesh")
+			{
+				setAttr ($cloth+".showStrain") 0;
+				setAttr ($shape+".displayColors") 0;
+			}		
+		}
+	}
+	//currentTime -e `currentTime -q`;
+}
+	
+	
+
+

@@ -1,0 +1,20 @@
+global proc  AEqlColliderShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Collider Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "offset";
+		editorTemplate -addControl "friction";
+		editorTemplate -addControl "priority";
+		editorTemplate -suppress "input";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

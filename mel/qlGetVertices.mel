@@ -1,0 +1,53 @@
+global proc int qlGetVertices() 
+{
+	string $cloth;
+	string $clothes[];
+	string $mesh;
+	string $constraint;
+
+	int $vi[],$i;
+
+	$constraint = qlGetConstraint();
+	if($constraint== "") {
+		error "select a constraint";
+		return 0;
+	}
+
+
+	$clothes = `listConnections -sh 1 ($constraint+".constraint")`;
+	$cloth = $clothes[0];
+	if(nodeType($cloth) != "qlClothShape")
+	{
+		error "The constraint is not connected to a cloth";
+		return 0;
+	}
+
+	$mesh = qlGetOutputMesh($cloth);
+
+	if(nodeType($mesh) != "mesh")
+	{
+		error "The simulator is not directly connected to a mesh";
+		return 0;
+	}
+
+	$vi = `getAttr ($constraint+".vind")`;
+
+	string $cmd = "select -add ";
+	int $s, $e;
+	for($i=0;$i<size($vi);$i++)
+	{
+		$s = $vi[$i];
+		while($i<size($vi)-1 && $vi[$i]+1 == $vi[$i+1]) $i++;
+		$e = $vi[$i];
+
+		if($s < $e)
+			$cmd += $mesh + ".vtx["+$s+":"+$e+"] ";
+		else
+			$cmd += $mesh + ".vtx["+$s+"] ";
+	}
+	selectMode -co;
+	select -r $constraint;
+	hilite $mesh;
+	eval $cmd;
+	return 1;
+}

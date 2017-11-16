@@ -1,0 +1,30 @@
+global proc qlBatchRun(int $start, int $end)
+{
+	int $i;
+	string $solvers[];
+	string $solver;
+	string $clothes[];
+	string $cloth;
+
+	$solvers = `ls -typ qlSolverShape`;
+	if(size($solvers)==0) return;
+
+	// clear cache first
+	for($solver in $solvers)
+	{
+		$clothes = qlGetClothesBelongToThisSolver($solver);
+		currentTime -e `getAttr ($solver +".startTime")`;
+		for($cloth in $clothes) if(`getAttr ($cloth+".active")` == 1) qlTruncateSimCache($cloth); // the initial frame cache file is preserved
+	}
+
+	// evaluate sim
+	for($i=$start;$i<=$end;$i++)
+	{
+		currentTime -e $i;
+		for($solver in $solvers)
+		{
+			$clothes = qlGetClothesBelongToThisSolver($solver);
+			for($cloth in $clothes)	if(`getAttr ($cloth+".active")` == 1) dgeval ($cloth+".outputMesh");
+		}
+	}
+}

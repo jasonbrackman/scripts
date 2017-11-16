@@ -1,0 +1,188 @@
+
+//선택한 네임스페이스의 정보를 입수
+global proc string getNSInfo( string $nameNS, string $origNS, string $option ){
+	namespace -set $nameNS;
+	string $currentNS = `namespaceInfo -currentNamespace`;
+	string $parentNS = `namespaceInfo -parent`;
+	string $childNS = `namespaceInfo -recurse -listOnlyNamespaces`;		
+	namespace -set ( ":" + $origNS );
+	if ( $option == "p" ){
+		return $parentNS;
+	}
+	else if ( $option == "c" ){
+		return $currentNS;
+	}
+	else if ( $option == "ch" ){
+		return $childNS;
+	}
+}
+
+
+//루트 네임스페이스로부터 하위 네임스페이스 트리 정보를 입수 (UI와 shared만 삭제하고 리턴)
+global proc string[] getFullNSTree(){
+	string $currentNS = `namespaceInfo -currentNamespace`;
+	string $rootNS[] = {":"};
+	namespace -set ":";
+	string $childNS[] =`namespaceInfo -recurse -listOnlyNamespaces`;
+	namespace -set ( ":" + $currentNS );
+	string $returnNS[] = stringArrayCatenate( $rootNS, $childNS );
+	return $returnNS;
+}
+
+//선택한 네임스페이스에 속해있는 엘리먼트 정보를 입수
+global proc getContNS( string $selNS, string $origNS ){
+	namespace -set $selNS;
+	string $contents[] = `namespaceInfo -recurse -listOnlyDependencyNodes`;
+	namespace -set ( ":" + $origNS );
+}
+
+//네임스페이스 리스트 업데이트
+global proc updList(){
+	string $currentNS = `namespaceInfo -currentNamespace`;
+	string $listNS[] = `getFullNSTree`;
+	string $maskNS[] = { "UI", "shared" };
+	string $diffListNS[] = stringArrayRemoveExact( $maskNS, $listNS );
+	textScrollList -edit -removeAll sourceNSList;
+	textScrollList -edit -removeAll targetNSList;
+	for ( $nameNS in $diffListNS ){
+		textScrollList -edit -append $nameNS sourceNSList;
+		textScrollList -edit -append $nameNS targetNSList;
+	}
+	textFieldGrp -edit -tx $currentNS currentNSDisp;
+
+}
+
+//리네임
+global proc renNS(string $selNS, string $origNS, string $newName){
+	string $parentNS = getNSInfo( $selNS, $origNS, "p" );
+//	namespace -set $selNS;
+//	namespace -ren $selNS $
+	print $parentNS;
+}	
+	
+//버튼 명령 모음
+global proc butAction(int $index){
+	string $sSelNS[] = `textScrollList -q -selectItem sourceNSList`;
+	string $tSelNS[] = `textScrollList -q -selectItem targetNSList`;
+	string $sSelNSFull = ":" + $sSelNS[0];
+	string $currentNS = ( ":" + `namespaceInfo -currentNamespace`);
+
+	if ( $index ==0 ){
+		updList;
+	}
+	else if ( $index == 1 ){
+		namespace -p $sSelNSFull -add "newNamespace#";
+		updList;
+	}
+	else if ( $index == 2 ){
+		namespace -set $sSelNSFull;
+		updList;
+	}
+	else if ( $index == 3 ){
+		if ( `window -exists rnWin`){
+			deleteUI rnWin;
+		}
+		string $newName; 
+		string $doRN = renNS( $sSelNSFull, $currentNS, $newName );
+		string $cancel = "deleteUI rnWin";
+		string $renameWin = `window -t "Rename" -width 400 -sizeable false rnWin`;
+		columnLayout -columnAttach "both" 10
+			-rowSpacing 3 
+			-columnWidth 400;
+			text -label "New Name";
+			textField -text "newName" -width 300 newNameTxField;
+			string $newName = `textField -q -text newNameTxField`;
+			rowLayout -numberOfColumns 3
+				-columnWidth3 180 100 100
+				-columnAttach3 "both" "left" "left";
+				button -l "None" -visible false;
+				button -l "Rename" -width 95 -command $doRN;
+				button -l "Cancel" -width 95 -command $cancel;
+			showWindow rnWin;
+
+		
+	}
+	else if ( $index ==10 ){
+		namespace -force -rm $sSelNSFull;
+	}
+	updList;
+		
+}
+
+//UI생성
+proc nsManagerUI(){
+	if (`window -exists nsmWin`){
+		deleteUI nsmWin;
+	}
+	string $butAct0 = "butAction(0)"; 
+	string $butAct1 = "butAction(1)";
+	string $butAct2 = "butAction(2)";
+	string $butAct3 = "butAction(3)";
+	string $butAct4 = "butAction(4)";
+	string $butAct5 = "butAction(5)";
+	string $butAct6 = "butAction(6)";
+	string $butAct7 = "butAction(7)";
+	string $butAct8 = "butAction(8)";
+	string $butAct9 = "butAction(9)";
+	string $butAct10 = "butAction(10)";
+	string $butAct11 = "butAction(11)";
+	
+	string $window = `window -t "namespaceManager"  -sizeable 0 nsmWin`;
+	
+	columnLayout -columnAttach both 10 -rowSpacing 10 -columnWidth 500;
+		rowLayout;
+			textFieldGrp -label "Current Namespace" -text `namespaceInfo -currentNamespace` -editable false currentNSDisp;
+		setParent ..;
+		rowColumnLayout
+			-numberOfColumns 2
+			-columnAlign 1 "right" 
+			-columnAlign 2 "right" 
+			-columnAttach 1 "left" 0
+			-columnAttach 2 "left" 20;
+			
+			text -label "Source Namespaces";
+			
+			text -label "Contents";
+			
+			textScrollList -width 230 -numberOfRows 10
+				-allowMultiSelection true
+				sourceNSList;
+			
+			textScrollList -width 230 -numberOfRows 10
+				-allowMultiSelection false
+				targetNSList;
+			updList;
+				 
+		setParent ..;
+		rowColumnLayout -numberOfColumns 4
+			-columnWidth 1 120
+			-columnWidth 2 120
+			-columnWidth 3 120
+			-columnWidth 4 120;
+		
+			button -l "Update" -command $butAct0;
+			button -l "New Namespace" -command $butAct1;
+			button -l "Set Current" -command $butAct2;
+			button -l "Rename" -command $butAct3;
+			button -l "Merge" -command $butAct4;
+			button -l "Move Namespace" -command $butAct5;
+			button -l "Select Contents" -command $butAct6;
+			button -l "List Contents" -command $butAct7;
+			button -l "Move Contents" -command $butAct8;
+			button -l "Add Objects" -command $butAct9;
+			button -l "Delete Namespace" -command $butAct10;
+			button -l "Delete Contents" -command $butAct11;
+
+			showWindow $window;
+}
+
+//본체
+global proc nsManager(){
+//	string $cNS =`namespaceInfo -currentNamespace`;
+//	print ( "current namespace = " + $cNS + "\n" );
+//	getNSInfo( $name, $cNS );
+//	getFullNSTree();
+//	getContNS($name, $cNS);
+	
+	nsManagerUI();
+}

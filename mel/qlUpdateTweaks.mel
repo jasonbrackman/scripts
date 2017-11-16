@@ -1,0 +1,24 @@
+global proc string qlUpdateTweaks() 
+{
+	string $sim;
+	string $cloth;
+	string $nodes[];
+	string $mesh;
+
+	$sim = qlGetSimulator();
+	$cloth = qlGetCloth();
+
+	if($sim == "") {
+		error "The mesh has no simulator";
+		return "";
+	}
+	if($cloth == "") {
+		error "No cloth is selected";
+		return "";
+	}
+
+	qlCommand -n $sim -a $cloth -c "updateTweaks";
+	setAttr ($cloth+".cacheWrittenFlag") 1;
+
+	return $sim;
+}

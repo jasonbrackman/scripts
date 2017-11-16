@@ -1,0 +1,279 @@
+//add b2pipeline
+
+
+//지정된 폴더 생성.
+global proc b2makeFolder(string $path) {
+	
+	int $seqExist = `filetest -d $path`;
+		   
+	if ( $seqExist == 0 ){
+		string $result = `confirmDialog -title "Confirm" -message "새로운 폴더를 생성하시겠습니까?"
+						-button "Yes" -button "No" -defaultButton "Yes"
+						-cancelButton "No" -dismissString "No"`;
+		if ( $result == "Yes" ){
+			sysFile -md $path; 
+			print ("//result : create new folder : " + $path + "\n"); 
+		}
+		else 
+			print ("//cancle.\n");
+		
+	} else
+		print ("//result : " + $path + "already exist.\n");
+		
+}
+
+//rocal root를 지정해주는 window.
+global proc b2setLocalRootWin() {
+	
+	if ( `window -exists "b2SubWin1"` )
+		deleteUI "b2SubWin1";
+		
+	string $window = `window -title "b2 set local root" -sizeable false b2SubWin1`;
+	
+	string $rootLayout = `columnLayout -columnWidth 410 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 5`;
+	
+	separator -h 5 -st "none";
+	
+	text -label "set local download dir" -font "boldLabelFont";
+	separator -h 10 -st "doubleDash";
+	
+	text -label "local로 다운로드 시에 사용할 root경로를 설정해주세요.";
+	text -label "다운로드 경로가 자동으로 생성됩니다.";
+	text -label "ex)";
+	text -label "Asset Root Dir : D:/localDir/ " ;
+	text -label "Download path : D:/localDir/cha/hal01/";
+	
+	separator -width 400 -h 20 -st "in";
+	
+	textFieldButtonGrp -label "Asset Root Dir:" -text "" -buttonLabel " Browse... " 
+						-buttonCommand "b2FileDialog dir maya setAssetRootPathField"
+						-ed 0 -tcc "optionVar -sv b2AssetRootPath `textFieldButtonGrp -q -tx setAssetRootPathField`" 
+						-columnWidth 1 90 -columnWidth 2 240 -columnWidth 3 70
+						setAssetRootPathField;
+	
+	separator -h 10 -st "none";
+
+	textFieldButtonGrp -label "Shot Root Dir:" -text "" -buttonLabel " Browse... " 
+						-buttonCommand "b2FileDialog dir maya setShotRootPathField"
+						-ed 0 -tcc "optionVar -sv b2shotRootPath `textFieldButtonGrp -q -tx setShotRootPathField`" 
+						-columnWidth 1 90 -columnWidth 2 240 -columnWidth 3 70
+						setShotRootPathField;
+	
+	separator -width 400 -h 20 -st "in";				
+	
+	setParent ..;
+	showWindow $window;
+	
+	//edit
+	if ( `optionVar -ex "b2AssetRootPath"` )
+		textFieldButtonGrp -e -tx `optionVar -q "b2AssetRootPath"` setAssetRootPathField;
+	
+	if ( `optionVar -ex "b2shotRootPath"` )
+		textFieldButtonGrp -e -tx `optionVar -q "b2shotRootPath"` setShotRootPathField;
+	
+	
+	
+}
+
+// 자동으로 다운로드 경로 생성.
+global proc b2autoLocalDir( string $type ){
+	string $dirPath;
+	if ( $type == "asset" ) {
+		string $localRoot = "";	
+		if ( `optionVar -ex "b2AssetRootPath"` )
+			$localRoot = `optionVar -q "b2AssetRootPath"`;
+		string $selItem[] = `b2GetCurrentlySelectedItem 2 3`;
+		if ($localRoot != "" )
+			$dirPath = ($localRoot + $selItem[0] + "/" + $selItem[1] + "/" );
+		textFieldButtonGrp -e -text $dirPath setPathField;	
+	}
+
+	if ( $type == "shot" ) {	
+		string $localRoot = "";	
+		if ( `optionVar -ex "b2shotRootPath"` )
+			$localRoot = `optionVar -q "b2shotRootPath"`;
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		if ($localRoot != "" )
+			$dirPath = ($localRoot + $selItem[0] + "/" + $selItem[1] + "/" );	
+		textFieldButtonGrp -e -text $dirPath setPathField;	
+			
+	}
+	
+	if ( $type == "new" ) {	
+		string $localRoot = "";	
+		if ( `optionVar -ex "b2shotRootPath"` )
+			$localRoot = `optionVar -q "b2shotRootPath"`;
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		if ($localRoot != "" )
+			$dirPath = ($localRoot + $selItem[0] + "/" + $selItem[1] + "/" );	
+		textField -e -text $dirPath saveLocField;	
+		
+	}
+		
+}
+
+// 자동으로 경로 체크.
+//if current file has right name than select scrollList automatically.
+global proc b2autoSelectDir() {
+
+	//current fileName
+    string $filePath = `file -q -sn`;
+	string $baseName = `basenameEx($filePath)`;
+   
+	string $tokenTemp[];
+	int $tokenSize = `tokenize $baseName "_" $tokenTemp`;
+	
+	//variable.
+	string $val1,$val2,$val3,$val4;		
+	if ( $tokenSize > 0 ){
+		$val1 = $tokenTemp[0];
+		$val2 = $tokenTemp[1];
+		$val3 = $tokenTemp[2];		
+		$val4 = $tokenTemp[3];	
+		
+		//asset or shot
+		//get AssetTypelist and ShotList
+		string $assetTypeList[];
+		string $seqList[];	
+		if ( `textScrollList -ex assetTypeList` )
+			$assetTypeList = `textScrollList -q -allItems assetTypeList`;
+		if ( `textScrollList -ex shotList` )
+			$seqList = `textScrollList -q -allItems seqList`;	
+		
+		//asset browser
+		if (stringArrayContains( $val1 , $assetTypeList)){		
+			tabLayout -e -sti 1 mainTabLayout; 
+			textScrollList -e -si $val1 assetTypeList;	
+			b2UpdAssetNameList $val2;
+			b2UpdAssetCompoList $val3;
+			b2UpdAssetCompoSelected;
+		} 
+		
+		//shot browser	
+		else if (stringArrayContains( $val1 , $seqList)) {
+			tabLayout -e -sti 2 mainTabLayout; 
+			textScrollList -e -si $val1 seqList;	
+			b2UpdShotList $val2;
+			b2UpdShotCompoList $val3;
+			b2UpdShotCompoLayerList $val4;
+			b2UpdShotCompoLayerSelected ;		
+		}
+		else
+			print "//result : autoSelect  - filename is not matching.\n";
+	}
+	else
+	{
+		print "//result : autoSelect  -  filename has not right convention.\n";	
+		// error "save file first. no information.\n";
+		//	confirmDialog -title "Warning" -message ("현재 파일명이 규격에 맞지 않아 develop/release를 위한 자동설정을 할 수 없습니다.\n"
+		//		+ "develop이나 release를 하기 위해서는 사용자가 직접 UI에서 필요한 요소를 선택하셔야 합니다.");
+	}
+	
+}
+
+
+
+
+//////////////////////////////////////////////////////////////////////
+//original file editing 
+//get from b2PipelineAsset.mel line 270
+/*
+		global proc b2DoDownloadAssetFiles ( string $srcPath )
+		{
+			string $targetPath = `textFieldButtonGrp -q -text setPathField`;
+			string $checkPathStr = `match "^[A-Z]:/" $targetPath`;
+			int $checkPathExists = `filetest -d $targetPath`;
+			string $fileList[];
+			string $mayaFileDown;
+			string $failedList[];
+			
+			if( $checkPathStr == "" )
+			{
+				confirmDialog -title "Warning" -message "파일을 저장할 디렉토리를 선택하세요";
+			}
+			else
+			{
+				if ($checkPathExists == 0)
+					b2makeFolder $targetPath;			
+			
+				string $checkedItems[] = `scrollLayout -q -childArray fileList`;
+				for( $eachItem in $checkedItems )
+				{
+					int $checked = `checkBox -q -value $eachItem`;
+					if( $checked == 1 )
+					{
+						string $label = `checkBox -q -label $eachItem`;
+						$fileList[size($fileList)] = $label;
+					}
+				}
+				if( size($fileList) )
+				{
+					for( $eachFile in $fileList )
+					{
+						string $srcFile = $srcPath + $eachFile;
+
+						string $buffer[] = `stringToStringArray $eachFile "."`;
+						string $newFile = $buffer[0] + "_checkedOut." + $buffer[1];
+						string $targetFile = $targetPath + $newFile;
+						string $matchMaya = `match "[.]ma" $targetFile`;
+						if( $matchMaya != "" )
+						{
+							$mayaFileDown = $targetFile;
+						}
+
+						int $fileTest = `filetest -f $targetFile`;
+						if( $fileTest )
+						{
+							confirmDialog -title "Warning" -message "이미 다운로드 받은 파일이 있습니다.";
+						}
+						else
+						{
+							string $result = `b2CopyFile $srcFile $targetFile`;
+							if( $result != 1 )
+							{
+								$failedList[size($failedList)] = $eachFile;
+							}
+					
+						}
+					}
+					if( size($failedList) != 0 )
+					{
+						deleteUI b2SubWin1;
+						confirmDialog -title "Info" -message "로컬 디렉토리로 복사하지 못한 파일이 있습니다.\n목록을 스크립트 에디터로 출력합니다.";
+						print "===========================================================================================\n";
+						print "                           다음 파일을 복사하지 못했습니다.\n";
+						print "===========================================================================================\n";
+						print $failedList;
+						print "===========================================================================================\n";
+					}
+					else
+					{
+						if( size($fileList) == 1 )
+						{
+							string $openChoice = `confirmDialog -title "Info" -message "파일을 로컬 드라이브로 모두 복사 했습니다.\n파일을 지금 여시겠습니까?"
+								-button "Yes" -button "No" -defaultButton "Yes" -cancelButton "No" -dismissString "No"`;
+							if ( $openChoice == "Yes" )
+							{
+								deleteUI b2SubWin1;
+								file -new -f;
+								file -open $mayaFileDown;
+							}
+							else
+							{
+								deleteUI b2SubWin1;
+							}
+						}
+						else
+						{
+							confirmDialog -title "Info" -message "파일을 로컬 드라이브로 모두 복사 했습니다." -button "confirm";
+							deleteUI b2SubWin1;
+						}
+					}
+		
+				}
+			}
+		}
+		//-/
+
+*/
+

@@ -1,0 +1,18 @@
+global proc  AEqlRoundedExtrudeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	editorTemplate -beginLayout "Extrude Properties" -collapse 0;
+		editorTemplate -addControl "offset";
+		editorTemplate -addControl "subdivision";
+		editorTemplate -suppress "inMesh";
+	editorTemplate -endLayout;
+
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

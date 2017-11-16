@@ -1,0 +1,27 @@
+global proc qlUpdateGoalForceLimit(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".enableForceLimit" )`;	
+	editorTemplate -dimControl $nodeName "forceLimit" (!$override);
+}
+
+global proc  AEqlGoalConstraintShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+	
+	editorTemplate -beginLayout "Goal Constraint Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "matchingMethod";
+		editorTemplate -addControl "attractionMethod";
+		editorTemplate -addControl "strength";
+		editorTemplate -addControl "damping";
+		editorTemplate -addControl "enableForceLimit" "qlUpdateGoalForceLimit";
+		editorTemplate -addControl "forceLimit";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

@@ -1,0 +1,19 @@
+global proc int qlClearVelocity() 
+{
+	string $sims[];
+	string $sim;
+
+	$sims = qlGetSimulators();
+
+	if(size($sims) == 0) 
+	{
+		return 0;
+	}
+
+	for($sim in $sims)
+	{
+		qlCommand -n $sim -c "clearVelocity";
+	}
+
+	return 1;
+}

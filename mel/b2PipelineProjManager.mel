@@ -1,0 +1,258 @@
+// b2ProjManager
+// 기능		- 프로젝트 생성 / 백업 / 삭제를 위한 UI
+// 입력		- 없음
+// 작동절차	- 
+// 출력		- 없음
+//-
+global proc b2ProjManager()
+{
+	string $currentProjRoot = `optionVar -q "projRoot"`;
+	if (`window -exists "b2SubWin1"`)
+	{
+		deleteUI "b2SubWin1";
+	}
+
+	string $window = `window -t "b2ProjectManager" -sizeable false b2SubWin1`;
+	string $rootLayout = `columnLayout -columnWidth 500 -columnAttach "both" 0 -rowSpacing 5 rootLayout`;
+		textFieldButtonGrp -label "Project root location : " -text ""  -buttonLabel "Browse"
+			-columnWidth3 120 300 60 -columnAttach3 "left" "left" "left"
+			-buttonCommand "b2GetProjRoot" projRootField;
+		separator;
+		rowLayout -numberOfColumns 2;
+			columnLayout -columnWidth 100 -columnAttach "left" 0 -rowSpacing 5;
+				text -label "Project List" -font "boldLabelFont";
+				textScrollList -width 200 -numberOfRows 10 -allowMultiSelection false -selectCommand "b2UpdProjInfoField" projectList;
+				rowColumnLayout -numberOfColumns 2 -columnWidth 1 100 -columnWidth 2 100;
+					button -label "New..." -ann "새 프로젝트를 생성합니다. 한 번 정한 이름은 변경할 수 없습니다.";
+					button -label "Edit / Lock" -ann "프로젝트의 기본정보를 수정합니다. 수정한 후 Save를 해주세요." -command "b2EditProjInfoField";
+					button -label "Save Info" -ann "변경한 프로젝트 정보를 저장합니다." -command "b2SaveProjInfo";
+					button -label "Create Directories" -ann "저장한 프로젝트 정보에 설정된 디렉토리를 생성합니다.";
+			setParent ..;
+		setParent ..;
+			columnLayout -columnWidth 300 -columnAttach "left" 0 -rowSpacing 5;
+				text -label "Project Info" -font "boldLabelFont";
+				separator -width 290;
+				textFieldGrp -label "Asset Lib Name :" -text ""
+					-columnWidth 1 100 -columnWidth 2 180 -columnAttach 1 "right" 10 -editable false astLibNameField;
+				textFieldGrp -label "Shot Lib Name :" -text ""
+					-columnWidth 1 100 -columnWidth 2 180 -columnAttach 1 "right" 10 -editable false shtLibNameField;
+				textFieldGrp -label "Image Width :" -text ""
+					-columnWidth 1 100 -columnWidth 2 180 -columnAttach 1 "right" 10 -editable false imgWidthField;
+				textFieldGrp -label "Image Height :" -text ""
+					-columnWidth 1 100 -columnWidth 2 180 -columnAttach 1 "right" 10 -editable false imgHeightField;
+				// textFieldGrp -label "FPS :" -text ""
+					// -columnWidth 1 100 -columnWidth 2 180 -columnAttach 1 "right" 10 -editable false fpsField;
+				optionMenuGrp -label "Frame Rate :   " -columnWidth 1 100 -enable false fpsMenu;
+					menuItem -label "Select Frame Rate   ";
+					menuItem -label "game";
+					menuItem -label "film";
+					menuItem -label "ntsc";
+				textFieldGrp -label "Pixel Ratio :" -text ""
+					-columnWidth 1 100 -columnWidth 2 180 -columnAttach 1 "right" 10 -editable false pixelRatioField;
+				optionMenuGrp -label "WorkingUnit :   " -columnWidth 1 100 -enable false unitMenu;
+					menuItem -label "Select Distance Unit";
+					menuItem -label "milimeter";
+					menuItem -label "centimeter";
+					menuItem -label "inch";
+					menuItem -label "foot";
+					menuItem -label "yard";		
+				text -label "";
+				text -label "";
+				text -label "";
+			setParent ..;
+		setParent rootLayout;
+	showWindow $window;
+		textFieldButtonGrp -edit -text $currentProjRoot	projRootField;
+		b2UpdProjList;
+}
+//-/
+
+
+// b2GetProjRoot
+// 기능		- fileDialog2를 통해 입력받은 경로를 UI에 표시.
+//			- optionVar -sv "projRoot"에 저장.
+// 작동절차	- 
+// 입력		-
+// 출력		-
+//-
+global proc b2GetProjRoot()
+{
+	string $filePath[] = `fileDialog2 -caption "Select Project Root Directory" -fileMode 2 -okCaption "Set"`;
+	if( size($filePath) )
+	{
+		$filePath[0] = `substituteAllString $filePath[0] "\\" "\/"`;	
+		textFieldButtonGrp -edit -text $filePath[0] projRootField;
+		optionVar -sv "projRoot" $filePath[0];
+		eval "b2Pipeline\n";
+	}
+	b2UpdProjList;
+}
+//-/
+ 
+
+// b2UpdProjList
+// 기능		- projectManager UI의 프로젝트 리스트를 갱신
+// 작동절차	-
+// 입력		-
+// 출력		-
+//-
+global proc b2UpdProjList()
+{
+	string $projRoot = `optionVar -q "projRoot"`;
+	string $projList[] = `b2GetFolderList $projRoot`;
+	textScrollList -edit -removeAll projectList;
+	for ($eachProj in $projList)
+	{
+		textScrollList -edit -append $eachProj projectList;
+	}
+}
+//-/
+
+
+// b2UpdProjInfo
+//  .xml파일의 내용을 읽어들여 가장 최신 정보에서 각각의 태그를 제거하고 대응하는 UI를 edit.
+//-
+global proc b2UpdProjInfoField()
+{
+	string $projRoot = `optionVar -q "projRoot"`;
+	$projRoot = `b2AddSlash $projRoot`;
+	string $selItem[] = `textScrollList -q -selectItem projectList`;
+	string $defFile = $projRoot + $selItem[0] + "/" + $selItem[0] + "_def.xml";
+	string $projInfoArray[] = `b2GetProjInfo $defFile`;
+
+	textFieldGrp -edit -text $projInfoArray[0] astLibNameField;
+	textFieldGrp -edit -text $projInfoArray[1] shtLibNameField;
+	textFieldGrp -edit -text $projInfoArray[2] imgWidthField;
+	textFieldGrp -edit -text $projInfoArray[3] imgHeightField;
+	optionMenuGrp -edit -value $projInfoArray[4] fpsMenu;
+	textFieldGrp -edit -text $projInfoArray[5] pixelRatioField;
+	optionMenuGrp -edit -value $projInfoArray[6] unitMenu;
+}
+
+//-/
+
+
+// b2GetProjInfo
+// 기능		- 프로젝트 디렉토리 안의 .xml파일을 읽어 내용을 array로 반환
+// 작동절차	-
+// 입력		-
+// 출력		-
+//-
+global proc string[] b2GetProjInfo( string $defFile )
+{
+	string $valueArray[];
+	string $textArray[] = `b2ReadAllNotes "projDefInfo" $defFile`;
+	string $latestInfo = $textArray[0];
+
+	string $assetLib = `match "<assetLibName>[a-zA-Z0-9.]*</assetLibName>" $latestInfo`;
+		$assetLib = substitute("<assetLibName>", $assetLib, "");
+		$assetLib = substitute("</assetLibName>", $assetLib, "");
+	string $shotLib = `match "<shotLibName>[a-zA-Z0-9.]*</shotLibName>" $latestInfo`;
+		$shotLib = substitute ("<shotLibName>", $shotLib, "");
+		$shotLib = substitute ("</shotLibName>", $shotLib, "");
+	string $imgWidth = `match "<imgWidth>[a-zA-Z0-9.]*</imgWidth>" $latestInfo`;
+		$imgWidth = substitute ("<imgWidth>", $imgWidth, "");
+		$imgWidth = substitute ("</imgWidth>", $imgWidth, "");
+	string $imgHeight = `match "<imgHeight>[a-zA-Z0-9.]*</imgHeight>" $latestInfo`;
+		$imgHeight = substitute ("<imgHeight>", $imgHeight, "");
+		$imgHeight = substitute ("</imgHeight>", $imgHeight, "");
+	string $fps = `match "<fps>[a-zA-Z0-9.]*</fps>" $latestInfo`;
+		$fps = substitute ("<fps>", $fps, "");
+		$fps = substitute ("</fps>", $fps, "");
+		switch( $fps )
+		{
+			case "15":
+				$fps = "game";
+				break;
+			case "24":
+				$fps = "film";
+				break;
+			case "30":
+				$fps = "ntsc";
+				break;
+		}
+	string $pxRatio = `match "<pxRatio>[a-zA-Z0-9.]*</pxRatio>" $latestInfo`;
+		$pxRatio = substitute ("<pxRatio>", $pxRatio, "");
+		$pxRatio = substitute ("</pxRatio>", $pxRatio, "");
+	string $workingUnit = `match "<workingUnit>[a-zA-Z0-9.]*</workingUnit>" $latestInfo`;
+		$workingUnit = substitute ("<workingUnit>", $workingUnit, "");
+		$workingUnit = substitute ("</workingUnit>", $workingUnit, "");
+	
+	$valueArray[0] = $assetLib;
+	$valueArray[1] = $shotLib;
+	$valueArray[2] = $imgWidth;
+	$valueArray[3] = $imgHeight;
+	$valueArray[4] = $fps;
+	$valueArray[5] = $pxRatio;
+	$valueArray[6] = $workingUnit;
+	
+	return $valueArray;
+}
+//-/
+
+
+// b2EditProjInfoField
+//
+//
+//-
+global proc b2EditProjInfoField()
+{
+	string $uiList[] = { "astLibNameField", "shtLibNameField", "imgWidthField", "imgHeightField", "fpsMenu", "pixelRatioField", "unitMenu" };
+	for ($eachUI in $uiList)
+	{
+		if( $eachUI != "fpsMenu" && $eachUI != "unitMenu" )
+		{
+			if (`textFieldGrp -q -editable $eachUI` == 0)
+			{
+				textFieldGrp -edit -editable true $eachUI;
+			}
+			else
+			{
+				textFieldGrp -edit -editable false $eachUI;
+			}
+		}
+		else
+		{
+			if (`optionMenuGrp -q -enable $eachUI` == 0)
+			{
+				optionMenuGrp -edit -enable true $eachUI;
+			}
+			else
+			{
+				optionMenuGrp -edit -enable false $eachUI;
+			}
+		}
+	}
+}
+//-/
+
+
+// b2SaveProjInfo
+//
+//
+//-
+global proc b2SaveProjInfo()
+{
+	string $projRoot = `optionVar -q "projRoot"`;
+	string $selItem[] = `textScrollList -q -selectItem projectList`;
+	string $projDefFilePath = $projRoot + "/" + $selItem[0] + "/" + $selItem[0] + "_def.xml";
+	int $fileId = `fopen $projDefFilePath "a"`;
+	string $astLibName = `textFieldGrp -q -text astLibNameField`;
+	string $shtLibName = `textFieldGrp -q -text shtLibNameField`;
+	string $imgWidth = `textFieldGrp -q -text imgWidthField`;
+	string $imgHeight = `textFieldGrp -q -text imgHeightField`;
+	string $fps = `optionMenuGrp -q -value fpsMenu`;	
+	string $pixRatio = `textFieldGrp -q -text pixelRatioField`;
+	string $unit = `optionMenuGrp -q -value unitMenu`;
+	fprint $fileId "<projDefInfo>\n";
+	fprint $fileId ("	<assetLibName>" + $astLibName + "</assetLibName>\n");
+	fprint $fileId ("	<shotLibName>" + $shtLibName + "</shotLibName>\n");
+	fprint $fileId ("	<imgWidth>" + $imgWidth + "</imgWidth>\n");
+	fprint $fileId ("	<imgHeight>" + $imgHeight + "</imgHeight>\n");
+	fprint $fileId ("	<fps>" + $fps + "</fps>\n");
+	fprint $fileId ("	<pxRatio>" + $pixRatio + "</pxRatio>\n");
+	fprint $fileId ("	<workingUnit>" + $unit + "</workingUnit>\n");
+	fprint $fileId "</projDefInfo>\n";
+	fclose $fileId;	
+}
+//-/

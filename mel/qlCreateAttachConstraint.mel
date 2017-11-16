@@ -1,0 +1,30 @@
+global proc string qlCreateAttachConstraint() 
+{
+	string $ndoes[];
+	string $cloth;
+	string $mesh;
+	string $node;
+	string $attachconst;
+
+	$nodes = qlGetClothAndObject();
+	if(size($nodes) != 2) {
+		error "select cloth vertices and a mesh";
+		return "";
+	}
+	$cloth = $nodes[0];
+	$mesh = $nodes[1];
+
+	string $vi = `qlExpandVerIdx`;
+	string $vp = `qlExpandVerPos`;
+
+	$attachconst= `createNode qlAttachConstraintShape`;
+
+	connectAttr ($mesh + ".worldMesh") ($attachconst+ ".inputMesh");
+	eval("setAttr "+$attachconst+".vertexIndices -type Int32Array "+$vi);
+	eval("setAttr "+$attachconst+".initPositions -type vectorArray "+$vp);
+	connectAttr -na ($attachconst+ ".constraint")  ($cloth + ".constraint");
+	setAttr ($attachconst+".update") true;
+
+	select $attachconst;
+	return $attachconst;
+}

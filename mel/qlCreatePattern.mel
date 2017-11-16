@@ -1,0 +1,97 @@
+global proc string qlCreatePattern () 
+{
+	global string $qlCurrentSolver;
+	string $cloth;
+	
+	$cloth = qlCreatePatternWithSolver($qlCurrentSolver);
+
+	select $cloth;
+	return $cloth;
+}
+
+global proc string qlCreatePatternWithSolver(string $solver) 
+{
+	int $i;
+	string $selectionList[];
+	string $curveList[];
+	string $cloth;
+	string $shapes[];
+
+	$curveList = qlGetCurvesFromSelection();
+
+	if(size($curveList)<1) {
+		error "Select curves or a group of curves";
+		return "";
+	}
+
+	$cloth = qlCreatePatternWithCurvesAndSolver($curveList, $solver);
+
+	select $cloth;
+	return $cloth;
+}
+
+global proc string qlCreatePatternWithCurvesAndSolver(string $curveList[], string $_solver) 
+{
+	int $i;
+	int $ci;
+	string $pattern;
+	string $disc;
+	string $node;
+	string $mesh;
+	string $cloth;
+	string $clothTr[];
+
+	if(qlCheckParallelCurves($curveList))
+	{
+		error "parallel curves cannot constitute a pattern shape";
+		return "";
+	}
+
+	$solver = qlValidateSolver($_solver);
+	
+	if( $solver == "") {
+		error ($_solver + " is not a valid solver");
+		return "";		
+	}
+	
+	$pattern = `createNode qlPattern -n qlPatternShape1`;
+	for($i=0;$i<size($curveList);$i++)
+	{
+		$node = $curveList[$i];
+		if(nodeType($node) != "nurbsCurve")
+		{
+			error ($node + " is not a nurbs curve");
+			return "";
+		}
+		connectAttr ($node + ".worldSpace") ($pattern + ".inputCurve["+$i+"]");
+	}
+
+	$disc = `createNode qlDiscretizer`;
+	connectAttr -na ($pattern + ".output") ($disc + ".inputPattern");
+
+	$cloth = `createNode qlClothShape`;
+	$clothTr = `listRelatives -p $cloth`;
+	connectAttr ($disc + ".output") ($cloth + ".inputGeometry");
+
+	$mesh = `createNode mesh -n ($clothTr[0]+"OutShape")`;
+	connectAttr ($cloth + ".outputMesh") ($mesh + ".inMesh");
+	
+	connectAttr time1.outTime ($cloth+".currentTime");	
+	setAttr ($solver+".startTime") `currentTime -q`;
+	connectAttr ($solver+".startTime") ($cloth+".startTime");	
+	connectAttr ($solver+".resim") ($cloth+".resim");
+	
+	$ci=0;
+	while(eval("connectionInfo -id "+$solver+".inputCloth["+$ci+"]")==1) $ci++;
+	
+	connectAttr ($cloth+".inputGeomChangeNotify") ($solver+".inputCloth["+$ci+"]");
+	connectAttr ($solver+".currentState["+$ci+"]") ($cloth+".currentState");
+	connectAttr ($cloth+".clothState") ($solver+".clothState["+$ci+"]");
+	
+
+	select -r $mesh;
+	assignShadingGroup initialShadingGroup;
+
+	select $cloth;
+	return $cloth;
+}

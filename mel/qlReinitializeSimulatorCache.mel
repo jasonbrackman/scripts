@@ -1,0 +1,19 @@
+global proc int qlReinitializeSimulatorCache() 
+{
+	string $simList[];
+	string $sim;
+
+	$simList = qlGetSimulators();
+
+	if(size($simList ) < 1) {
+		error "select cloth mesh(es)";
+		return 0;
+	}
+	for ($sim in $simList )
+	{
+		qlCommand -n $sim -c "setInitialize";
+		dgdirty $sim;
+	}
+
+	return size($simList);
+}

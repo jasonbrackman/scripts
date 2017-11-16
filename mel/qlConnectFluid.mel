@@ -1,0 +1,149 @@
+global proc string qlConnectFluidAsVelocity() 
+{
+	string $sim;
+	string $cloth;
+	string $fluid;
+	string $plug_names[];
+	int $ci;
+	int $mi;
+
+	$cloth = qlGetCloth();
+	$sim = qlGetSimulator();
+
+	if($sim == "" || $cloth == "") {
+		error "select a cloth and a fluid container";
+		return "";
+	}
+
+	$fluid = qlGetFluid();
+	if($fluid == "") {
+		error "select a cloth and a fluid container";
+		return "";
+	}
+	
+	$plug_names = `listConnections -p on ($cloth+".inputGeomChangeNotify")`;
+	if(size($plug_names)<1)
+	{
+		error "this cloth has no solver";
+		return "";		
+	}
+	
+	$ci=0;
+	while(eval("connectionInfo -id "+$fluid+".inputData["+$ci+"]")==1) $ci++;
+	
+	$mi = qlGetLogicalIndex($plug_names[0]);
+	
+	
+	connectAttr ($sim+".fieldData["+$mi+"]") ($fluid+".inputData["+$ci+"]");
+	connectAttr -na ($fluid+".outputForce["+$ci+"]") ($cloth+".velocityField");
+		
+	select $sim ;
+	return $sim ;
+}
+
+global proc string qlConnectFluidAsForce() 
+{
+	string $sim;
+	string $cloth;
+	string $fluid;
+	string $plug_names[];
+	int $ci;
+	int $mi;
+
+	$cloth = qlGetCloth();
+	$sim = qlGetSimulator();
+
+	if($sim == "" || $cloth == "") {
+		error "select a cloth and a fluid container";
+		return "";
+	}
+
+	$fluid = qlGetFluid();
+	if($fluid == "") {
+		error "select a cloth and a fluid container";
+		return "";
+	}
+	
+	$plug_names = `listConnections -p on ($cloth+".inputGeomChangeNotify")`;
+	if(size($plug_names)<1)
+	{
+		error "this cloth has no solver";
+		return "";		
+	}
+	
+	$ci=0;
+	while(eval("connectionInfo -id "+$fluid+".inputData["+$ci+"]")==1) $ci++;
+	
+	$mi = qlGetLogicalIndex($plug_names[0]);
+	
+	
+	connectAttr ($sim+".fieldData["+$mi+"]") ($fluid+".inputData["+$ci+"]");
+	connectAttr -na ($fluid+".outputForce["+$ci+"]") ($cloth+".externalForce");
+		
+	select $sim ;
+	return $sim ;
+}
+
+global proc qlDisconnectFluid()
+{
+	string $sim;
+	string $cloth;
+	string $fluid;
+	string $plug_names[];
+	string $fplug_names[];
+	string $plug;
+	
+	$cloth = qlGetCloth();
+	$sim = qlGetSimulator();
+
+	if($sim == "" || $cloth == "") {
+		error "select a cloth and a fluid container";
+		return;
+	}
+
+	$fluid = qlGetFluid();
+	if($fluid == "") {
+		error "select a cloth and a fluid container";
+		return;
+	}	
+
+	$plug_names = `listConnections -sh 1 ($cloth+".velocityField")`;
+	$fplug_names = `listConnections -sh 1 ($cloth+".externalForce")`;
+	appendStringArray($plug_names, $fplug_names, size($fplug_names) );
+
+	if(size($plug_names)==0 || stringArrayFind($fluid, 0, $plug_names) == -1)
+	{
+		error ($fluid+" has no connection to "+$cloth);
+		return;
+	}
+
+	$plug_names = `listConnections -sh 1 -p on ($cloth+".velocityField")`;
+	for($plug in $plug_names)
+	{
+		string $buffer[];
+		tokenize($plug, ".", $buffer);
+		if($buffer[0] != $fluid) continue;
+
+		string $m1 = match("\[[0-9]+\]", $plug);
+		string $m2 = match("[0-9]+", $m1);
+		string $cloth_plugs[] = `listConnections -p on $plug`;
+		if(size($cloth_plugs)>0) disconnectAttr $plug $cloth_plugs[0];
+		string $sim_plugs[] = `listConnections -p on ($fluid+".inputData["+$m2+"]")`;
+		if(size($sim_plugs)>0) disconnectAttr $sim_plugs[0] ($fluid+".inputData["+$m2+"]");
+	}
+
+	$plug_names = `listConnections -sh 1 -p on ($cloth+".externalForce")`;
+	for($plug in $plug_names)
+	{
+		string $buffer[];
+		tokenize($plug, ".", $buffer);
+		if($buffer[0] != $fluid) continue;
+
+		string $m1 = match("\[[0-9]+\]", $plug);
+		string $m2 = match("[0-9]+", $m1);
+		string $cloth_plugs[] = `listConnections -p on $plug`;
+		if(size($cloth_plugs)>0) disconnectAttr $plug $cloth_plugs[0];
+		string $sim_plugs[] = `listConnections -p on ($fluid+".inputData["+$m2+"]")`;
+		if(size($sim_plugs)>0) disconnectAttr $sim_plugs[0] ($fluid+".inputData["+$m2+"]");
+	}
+}

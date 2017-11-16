@@ -1,0 +1,104 @@
+global proc string qlEnableCollision_UI()
+{
+	string $nodes[];
+	
+	$nodes = `ls -sl -o`;
+	if(size($nodes)<2)
+	{
+		error "select two objects";
+		return "";
+	}
+	return qlEnableCollision($nodes[0], $nodes[1]);
+}
+global proc string qlDisableCollision_UI()
+{
+	string $nodes[];
+	
+	$nodes = `ls -sl -o`;
+	if(size($nodes)<2)
+	{
+		error "select two objects";
+		return "";
+	}
+	return qlDisableCollision($nodes[0], $nodes[1]);
+}
+
+global proc string qlEnableCollision(string $node1, string $node2)
+{
+	string $obj1;
+	string $obj2;
+	
+	
+	$obj1 = qlHasCloth($node1);
+	if($obj1 == "") $obj1 = qlHasCollider($node1);
+	if($obj1 == "")
+	{
+		error ($node1+"  is not a Qualoth object (cloth or collider)");
+		return "";
+	}
+	
+	$obj2 = qlHasCloth($node2);
+	if($obj2 == "") $obj2 = qlHasCollider($node2);
+	if($obj2 == "")
+	{
+		error ($node1+"  is not a Qualoth object (cloth or collider)");
+		return "";
+	}
+	
+	string $crNode;
+	// check if there is already a collision relation node
+	$crNode = qlHasCollisionRelationNode($obj1, $obj2);
+	
+	// if not,
+	if($crNode == "") 
+	{
+		$crNode = `createNode qlCollisionRelation -n ($obj1+"__to__"+$obj2+"_collision")`;
+		connectAttr ($obj1+".cr") ($crNode+".obj1");
+		connectAttr ($obj2+".cr") ($crNode+".obj2");
+	}
+	setAttr ($crNode+".collision") 1;
+	
+	select -r $crNode;
+	
+	return $crNode;	
+}
+
+global proc string qlDisableCollision(string $node1, string $node2)
+{
+	string $obj1;
+	string $obj2;
+	
+	
+	$obj1 = qlHasCloth($node1);
+	if($obj1 == "") $obj1 = qlHasCollider($node1);
+	if($obj1 == "")
+	{
+		error ($node1+"  is not a Qualoth object (cloth or collider)");
+		return "";
+	}
+	
+	$obj2 = qlHasCloth($node2);
+	if($obj2 == "") $obj2 = qlHasCollider($node2);
+	if($obj2 == "")
+	{
+		error ($node1+"  is not a Qualoth object (cloth or collider)");
+		return "";
+	}
+	
+	string $crNode;
+	// check if there is already a collision relation node
+	$crNode = qlHasCollisionRelationNode($obj1, $obj2);
+	
+	// if not,
+	if($crNode == "") 
+	{
+		$crNode = `createNode qlCollisionRelation -n ($obj1+"__to__"+$obj2+"_collision")`;
+		connectAttr ($obj1+".cr") ($crNode+".obj1");
+		connectAttr ($obj2+".cr") ($crNode+".obj2");
+	}
+	setAttr ($crNode+".collision") 0;
+	
+	select -r $crNode;
+	
+	return $crNode;	
+}

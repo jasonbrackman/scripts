@@ -1,0 +1,16 @@
+global proc  AEqlButtonConstraintShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Button Constraint Property" -collapse 0;
+		editorTemplate -addControl "referenceEdge";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

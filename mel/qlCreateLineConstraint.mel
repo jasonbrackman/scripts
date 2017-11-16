@@ -1,0 +1,30 @@
+global proc string qlCreateLineConstraint() 
+{
+	string $sim;
+	string $lineconst;
+	string $poslist[];
+
+	$sim = qlGetCloth();
+	if($sim=="") return "";
+
+	string $vi = `qlExpandVerIdx`;
+	string $vp = `qlExpandVerPos`;
+
+	if($vi=="0") return "";
+
+	$lineconst = `createNode qlLineConstraintShape`;
+	string $parents[] = `listRelatives -p $lineconst`;
+
+	if(tokenizeList($vp, $poslist))
+		xform -piv ($poslist[1]+"cm") ($poslist[2]+"cm") ($poslist[3]+"cm") $parents[0];
+	
+	connectAttr ($parents[0]+".worldMatrix") ($lineconst+".inputMatrix");
+	connectAttr -na ($lineconst+".constraint") ($sim+".constraint");
+
+	
+	eval("setAttr "+$lineconst+".vertexIndices -type Int32Array "+$vi);
+	eval("setAttr "+$lineconst+".initPositions -type vectorArray "+$vp);
+
+	select $lineconst;
+	return $lineconst;
+}

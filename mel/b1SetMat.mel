@@ -1,0 +1,277 @@
+global proc int b1CreateMatShader( string $color)
+{
+	int $return;
+	if ($color == "cha")
+	{
+		if (!`objExists "b1MatCha_mat"`)
+		{
+			string $matCha = `shadingNode -n "b1MatCha_mat" -asShader lambert`;
+			setAttr ($matCha + ".color") 1 1 1;
+			setAttr ($matCha + ".ambientColor") 0 0 0;
+		}
+	}
+	else if ($color == "bg")
+	{
+		if (!`objExists "b1MatBG_mat"`)
+		{
+			string $matBG = `shadingNode -n "b1MatBG_mat" -asShader lambert`;
+			setAttr ($matBG + ".color") 1 1 1;
+			setAttr ($matBG + ".ambientColor") 0 0 0;
+		}
+	}
+	else if ($color == "red")
+	{
+		if (!`objExists "b1MatRed_mat"`)
+		{
+			string $matRed = `shadingNode -n "b1MatRed_mat" -asShader lambert`;
+			setAttr ($matRed + ".color") 1 0 0;
+			setAttr ($matRed + ".ambientColor") 1 1 1;
+		}
+	}
+	else if ($color == "blue")
+	{
+		if (!`objExists "b1MatBlue_mat"`)
+		{
+			string $matBlue = `shadingNode -n "b1MatBlue_mat" -asShader lambert`;
+			setAttr ($matBlue + ".color") 0 0 1;
+			setAttr ($matBlue + ".ambientColor") 1 1 1;
+		}
+	}
+	else if ($color == "green")
+	{
+		if (!`objExists "b1MatGreen_mat"`)
+		{
+			string $matGreen = `shadingNode -n "b1MatGreen_mat" -asShader lambert`;
+			setAttr ($matGreen + ".color") 0 1 0;
+			setAttr ($matGreen + ".ambientColor") 1 1 1;
+		}
+	}
+	else if ($color == "white")
+	{
+		if (!`objExists "b1MatWhite_mat"`)
+		{
+			string $matWhite = `shadingNode -n "b1MatWhite_mat" -asShader lambert`;
+			setAttr ($matWhite + ".color") 1 1 1;
+			setAttr ($matWhite + ".ambientColor") 1 1 1;
+		}
+	}
+	else if ($color == "black")
+	{
+		if (!`objExists "b1MatBlack_mat"`)
+		{
+			string $matBlack = `shadingNode -n "b1MatBlack_mat" -asShader lambert`;
+			setAttr ($matBlack + ".color") 0 0 0;
+			setAttr ($matBlack + ".ambientColor") 1 1 1;
+			setAttr ($matBlack + ".matteOpacityMode") 0;
+		}
+	}
+	else if ($color == "spc")
+	{
+		if (!`objExists "b1MatSpc_mat"`)
+		{
+			string $matSpc = `shadingNode -n "b1MatSpc_mat" -asShader blinn`;
+			setAttr ($matSpc + ".color") 0 0 0;
+			setAttr ($matSpc + ".reflectivity") 0;
+			setAttr ($matSpc + ".specularRollOff") 0.6;
+			setAttr ($matSpc + ".eccentricity") 0.4;
+		}
+	}
+	else if ( $color == "inc" )
+	{
+		if( !`objExists "b1MatIncid_mat"` )
+		{
+			string $matInc = `shadingNode -n "b1MatIncid_mat" -asShader lambert`;
+			string $samplerInfo;
+			string $remapVal;
+			if( !`objExists "b1ShadingUtil_samplerInfo"` )
+			{
+				$samplerInfo = `shadingNode -n "b1ShadingUtil_samplerInfo" -asUtility samplerInfo`;
+			}
+			else
+			{
+				$samplerInfo = "b1ShadingUtil_samplerInfo";
+			}
+			if( !`objExists "b1ShadingUtil_remapIncidenceValue"` )
+			{
+				$remapVal = `shadingNode -n "b1ShadingUtil_remapIncidenceValue" -asUtility remapValue`;
+			}
+			else
+			{
+				$remapVal = "b1ShadingUtil_remapIncidenceValue";
+			}
+			setAttr( $matInc + ".ambientColor" ) 1 1 1;
+			setAttr ( $remapVal + ".outputMin" ) 1;
+			setAttr ( $remapVal + ".outputMax" ) 0;
+			connectAttr -force ( $samplerInfo + ".facingRatio" ) ( $remapVal + ".inputValue" );
+			connectAttr -force ( $remapVal + ".outColor" ) ( $matInc + ".color" );
+		}
+	}
+	else if( $color == "rim" )
+	{
+		if( !`objExists "b1MatRim_mat"` )
+		{
+			string $matRim = `shadingNode -n "b1MatRim_mat" -asShader rampShader`;
+			setAttr ( $matRim + ".diffuse" ) 0;
+			setAttr ( $matRim + ".eccentricity" ) 0.5;
+			setAttr ( $matRim + ".specularRollOff[0].specularRollOff_Position" ) 0.174;
+			setAttr ( $matRim + ".specularRollOff[0].specularRollOff_FloatValue" ) 1;
+			setAttr ( $matRim + ".specularRollOff[1].specularRollOff_Position" ) 0.4;
+			setAttr ( $matRim + ".specularRollOff[1].specularRollOff_FloatValue" ) 0;
+			setAttr ( $matRim + ".reflectivity[0].reflectivity_Position" ) 0;
+			setAttr ( $matRim + ".reflectivity[0].reflectivity_FloatValue" ) 0;
+			setAttr ( $matRim + ".reflectionLimit" ) 0;
+		}
+	}
+	else if( $color == "blinn" )
+	{
+		string $matBlinn = `shadingNode -n "b1MatBlinn_mat" -asShader blinn`;
+		setAttr ( $matBlinn + ".reflectivity" ) 0;
+	}
+	else if( $color == "normal" )
+	{
+		if( !`objExists "b1MatNormal_mat"` )
+		{
+			string $matNrm = `shadingNode -n "b1MatNormal_mat" -asShader lambert`;
+			string $samplerInfo;
+			string $remapCol;
+			if( !`objExists "b1ShadingUtil_samplerInfo"` )
+			{
+				$samplerInfo = `shadingNode -n "b1ShadingUtil_samplerInfo" -asUtility samplerInfo`;
+			}
+			else
+			{
+				$samplerInfo = "b1ShadingUtil_samplerInfo";
+			}
+			if( !`objExists "b1ShadingUtil_remapNrmColor"` )
+			{
+				$remapCol = `shadingNode -n "b1ShadingUtil_remapNrmColor" -asUtility remapColor`;
+			}
+			else
+			{
+				$remapCol = "b1ShadingUtil_remapNrmColor";
+			}
+			print "$samplerInfo =\n";
+			print $samplerInfo;
+			print "\n";
+			print "$remapCol =\n";
+			print $remapCol;
+			print "\n";
+			setAttr ( $matNrm + ".ambientColor" ) 1 1 1;
+			setAttr ( $matNrm + ".diffuse" ) 0;
+			connectAttr -force ( $samplerInfo + ".normalCamera" ) ( $remapCol + ".color" );
+			connectAttr -force ( $remapCol + ".outColor" ) ( $matNrm + ".color" );
+			setAttr ( $remapCol + ".inputMin" ) -1;
+		}
+
+
+		
+	}
+	return 1;
+}
+
+global proc string[] b1GetShadersFromSel()
+{
+	string $selShapes[] = `ls -dag -s -sl`;
+	string $shadingGroups[];
+	for ($shape in $selShapes)
+	{
+		string $thisSGs[] = `listSets -type 1 -object $shape`;
+		appendStringArray($shadingGroups, $thisSGs,size($thisSGs));
+	}
+	return (stringArrayRemoveDuplicates($shadingGroups));
+}
+
+//- 입력된 키 값으로 셰이딩 그룹에 머티리얼 연결
+global proc b1SetMat( string $color)
+{
+	string $matName;
+	switch ($color)
+	{
+		case "cha":
+			$matName = "b1MatCha_mat";
+			break;
+		case "bg":
+			$matName = "b1MatBG_mat";
+			break;
+		case "red":
+			$matName = "b1MatRed_mat";
+			break;
+		case "blue":
+			$matName = "b1MatBlue_mat";
+			break;
+		case "green":
+			$matName = "b1MatGreen_mat";
+			break;
+		case "white":
+			$matName = "b1MatWhite_mat";
+			break;
+		case "black":
+			$matName = "b1MatBlack_mat";
+			break;
+		case "spc":
+			$matName = "b1MatSpc_mat";
+			break;
+		case "inc":
+			$matName = "b1MatIncid_mat";
+			break;
+		case "rim":
+			$matName = "b1MatRim_mat";
+			break;
+		case "blinn":
+			$matName = "b1MatBlinn_mat";
+			break;
+		case "normal":
+			$matName = "b1MatNormal_mat";
+			break;
+	}
+	string $channelName = ($matName + ".outColor");
+	string $shading[] = b1GetShadersFromSel();
+	b1CreateMatShader $color;
+	select -ne $shading;  
+	string $select[]=`ls -sl`;
+	for($item in $select)
+	{
+		if (`connectionInfo -isDestination ($item + ".miMaterialShader")`)
+		{
+			editRenderLayerAdjustment ($item + ".miMaterialShader");
+			editRenderLayerAdjustment ($item + ".surfaceShader");
+			connectAttr -f $channelName ($item+ ".miMaterialShader");
+			connectAttr -f $channelName ($item+ ".surfaceShader");
+			disconnectAttr  $channelName ($item+ ".miMaterialShader");
+		}
+		else
+		{
+			if (`connectionInfo -sourceFromDestination ($item + ".surfaceShader")` != $channelName)
+			{
+				editRenderLayerAdjustment ($item + ".surfaceShader");
+				connectAttr -f $channelName ($item+ ".surfaceShader");
+			}
+		}
+	}
+}
+//-/
+
+
+global proc b1SetMatUI()
+{
+	if (`window -exists b1SetMatWin`)
+	{
+		deleteUI b1SetMatWin;
+	}
+	string $window = `window -width 682 -height 100 -title "b1SetMat" -sizeable false b1SetMatWin`;
+	string $mainLayout = `columnLayout -columnWidth 682 -columnAttach both 2 -columnAlign left -rowSpacing 5`;
+		separator;
+		rowLayout -numberOfColumns 11;
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_normal.png" -label "CH" -width 60 -height 60 -command "b1SetMat cha";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_normal.png" -label "BG" -width 60 -height 60 -command "b1SetMat bg";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_normal.png" -label "Red" -bgc 1 0 0 -width 60 -height 60 -command "b1SetMat red";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_normal.png" -label "Green" -bgc 0 1 0 -width 60 -height 60 -command "b1SetMat green";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_normal.png" -label "Blue" -bgc 0 0 1 -width 60 -height 60 -command "b1SetMat blue";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_normal.png" -label "White" -bgc 1 1 1 -width 60 -height 60 -command "b1SetMat white";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_normal.png" -label "Black" -bgc 0 0 0 -width 60 -height 60 -command "b1SetMat black";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_spc.png" -label "Specular" -width 60 -height 60 -command "b1SetMat spc";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_incidence.png" -label "Incidence" -width 60 -height 60 -command "b1SetMat inc";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_rim.png" -label "Rim" -width 60 -height 60 -command "b1SetMat rim";
+			iconTextButton -style iconAndTextCentered -image "b1SetMat_Nrm.png" -label "Normal" -width 60 -height 60 -command "b1SetMat normal";
+	showWindow $window;
+}

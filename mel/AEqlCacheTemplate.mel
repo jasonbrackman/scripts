@@ -1,0 +1,59 @@
+global proc int qlCacheLoadFileCB2( string $attrname,
+                                 string $filename,
+                                 string $fileType )
+{
+	string	$tokenAry[];
+	tokenize($attrname, ".", $tokenAry);
+	setAttr $attrname -type "string" $filename;
+	return true;
+}
+
+
+global proc qlCacheLoadFileBrowser2( string $cmd )
+{
+	fileBrowser ($cmd, "Open", "", 0);
+}
+
+global proc  qlCacheNameNew2(string $attrName)
+{
+
+	setUITemplate -pst attributeEditorTemplate;
+	columnLayout -adjustableColumn 1 cacheNameLayout;
+		rowLayout -nc 4 -cw 4 25;
+		text -l "Cache Name";
+		textField cacheNameField;
+		symbolButton -i "navButtonBrowse.xpm" browserBtn;
+	setParent ..;
+	setUITemplate -ppt;
+	
+    qlCacheNameReplace2($attrName);
+}
+
+global proc  qlCacheNameReplace2(string $attrName)
+{
+	connectControl -fileName cacheNameField $attrName;
+	string $load_command = "qlCacheLoadFileCB2"+" "+$attrName;
+
+	symbolButton -e -c ("qlCacheLoadFileBrowser2 \"" + $load_command + "\"") browserBtn;
+}
+
+global proc  AEqlCacheTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	editorTemplate -beginLayout "Cache Attributes" -collapse 0;
+		editorTemplate -callCustom "qlCacheNameNew2" "qlCacheNameReplace2" "cacheName";
+		editorTemplate -addControl "perFrameCache";
+		editorTemplate -addControl "startTime";
+		editorTemplate -suppress "time";
+		editorTemplate -suppress "cacheName";
+	editorTemplate -endLayout;
+
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

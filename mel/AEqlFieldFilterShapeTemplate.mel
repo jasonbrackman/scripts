@@ -1,0 +1,19 @@
+global proc  AEqlFieldFilterShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+	
+	editorTemplate -beginLayout "FieldFilter Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "multiplier";
+		editorTemplate -as;
+		editorTemplate -addControl "positiveSide";
+		editorTemplate -addControl "negativeSide";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

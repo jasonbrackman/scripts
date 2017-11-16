@@ -1,0 +1,15 @@
+global proc string[] AEqlClothShapeRelated( string $node )
+{
+	string $nodes[];
+	
+	$nodes[0] = qlGetSolver($node);
+	$nodes[1] = $node;
+	
+	int $i;
+	string $collision_relations[];
+	$collision_relations = `listConnections ($node+".cr")`;
+	
+	appendStringArray($nodes, $collision_relations, size($collision_relations));
+	
+	return $nodes;
+}

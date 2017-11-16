@@ -1,0 +1,37 @@
+global proc string qlCreateGoalConstraint() 
+{
+	string $nodes[];
+	string $gconst;
+	string $gmesh;
+	string $gconstName;
+	string $gmeshName;
+
+	$nodes = qlGetClothAndObject();
+
+	if(size($nodes) != 2) {
+		error "select a cloth and a mesh";
+		return "";
+	}
+	
+	$gconstName = $nodes[1]+"_GoalConstraintShape";	
+	$gconst = `createNode qlGoalConstraintShape -n $gconstName`;
+	
+	$gmeshName = $nodes[1]+"_GoalShape";
+	$gmesh = `createNode mesh -n $gmeshName`;
+	select -r $gmesh;
+	assignShadingGroup initialShadingGroup;
+	
+	connectAttr ($nodes[0]+".lastMesh") ($gconst+".inCloth");
+	connectAttr ($nodes[1]+".worldMesh") ($gconst+".inGoal");
+	connectAttr ($nodes[1]+".worldMatrix") ($gconst+".inputMatrix");	
+	connectAttr ($gconst+".outputGoalMesh") ($gmesh+".inMesh");
+	
+
+	connectAttr -na ($gconst + ".goal") ($nodes[0]+".goal");
+	
+	string $parents[] = `listRelatives -p $gmesh`;
+	hide $parents[0];
+
+	select $gconst;
+	return $gconst;
+}

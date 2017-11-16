@@ -1,0 +1,106 @@
+global proc string [] qlStartLocalSimulation() 
+{
+	global int $undoState;
+	global int $restoreUndoState;
+	string $cloth;
+	string $solver;
+	string $clothes[];
+
+	$restoreUndoState = 0;
+
+	string $solvers[] = qlGetSimulators();
+	if(size($solvers) == 0) return $solvers;
+
+	$undoState = `undoInfo -q -state`;
+	$restoreUndoState = 1;
+	undoInfo -swf 0;
+
+	// hack for correct cloth state update 
+	for($solver in $solvers)
+	{
+		$clothes = qlGetClothesBelongToThisSolver($solver);
+		for($cloth in $clothes)
+		{
+			setAttr ($cloth+".local") 0; // causes clothState plug to be updated correctly for not-locally simulated cloth objects
+		}
+	}
+	
+	$clothes = qlGetClothes();
+
+	for($cloth in $clothes)
+	{
+		$solver = qlGetSolver($cloth);
+		setAttr ($solver+".local") 1;
+		setAttr ($cloth+".local") 1;
+	}
+
+	progressWindow -min 0 -max 100 -ii true -title "Local Simulation";
+	qlRunLocal(0, stringArrayToString($clothes, " "));
+
+	return $clothes;
+}
+global proc string [] qlStopLocalSimulation()
+{	
+	global int $undoState;
+	global int $restoreUndoState;
+	string $solver;
+	string $cloth;
+	string $clothes[];
+	
+	$clothes = qlGetClothes();
+
+	if(size($clothes) == 0) return $clothes;
+	
+	for($cloth in $clothes)
+	{
+		$solver = qlGetSolver($cloth);
+		setAttr ($solver+".local") 0;
+		setAttr ($cloth+".local") 0;
+	}
+
+	progressWindow -ep;
+
+	
+	if($restoreUndoState == 1) undoInfo -swf $undoState;
+	$restoreUndoState = 0;
+
+	return $clothes;
+}
+
+global proc qlRunLocal(int $val, string $cloth_list)
+{
+	string $clothes[] = stringToStringArray($cloth_list, " ");
+	string $cloth;
+	string $solver;
+	int $cont = 0;
+
+	for($cloth in $clothes)
+	{
+		$solver = qlGetSolver($cloth);
+		if(`getAttr ($solver+".local")` == 1)
+		{
+			$cont = 1;
+			setAttr ($solver+".local") 1;
+			setAttr ($cloth+".local") 1;
+		}
+	}
+	for($cloth in $clothes)
+	{
+		dgeval ($cloth+".outputMesh");
+	}
+
+	if($cont == 1)
+	{
+		if(`progressWindow -q -ic`)
+		{
+			qlStopLocalSimulation;
+		}
+		else 
+		{
+			if($val>100) $val=0;
+			progressWindow -e -pr $val;
+			$val+=1;
+			evalDeferred -lp ("qlRunLocal "+$val+" \""+$cloth_list+"\"");
+		}
+	}
+}

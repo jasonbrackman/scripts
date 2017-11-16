@@ -1,0 +1,140 @@
+global proc qlApplyCreateClothOptions()
+{
+	global string $qlCurrentSolver;
+	string $curveList[];
+	
+	$curveList = qlGetCurvesFromSelection();
+	if(size($curveList)>0) qlCreatePatternWithSolver($qlCurrentSolver);
+	else qlCreateClothWithSolver($qlCurrentSolver);
+}
+global proc qlUpdateChangeSolverMenuItem()
+{
+	string $solvers[] = `ls -o -typ qlSolverShape`;
+	string $solver;
+	
+	string $mitems[] = `menu -q -ia qlChangeSolverItem`;
+	string $mitem;
+	for($mitem in $mitems)
+	{
+		deleteUI -menuItem $mitem;
+	}
+	
+	for($solver in $solvers)
+	{
+		menuItem -label $solver -p qlChangeSolverItem -c ("qlChangeSolver \""+$solver+"\"");
+	}
+	menuItem -label "New Solver" -p qlChangeSolverItem -c "qlChangeSolver \"New Solver\"";
+}
+
+global proc qlUpdateQualothSolverList()
+{
+	global string $qlCurrentSolver;
+	global string $gQualothCreateClothOptionWindow;
+	
+	if(!objExists($qlCurrentSolver)) {
+		$qlCurrentSolver = "New Solver";
+	}
+	
+	string $solvers[] = `ls -o -typ qlSolverShape`;
+	string $solver;
+	
+	if( `window -q -exists $gQualothCreateClothOptionWindow` )
+	{
+		$mitems = `optionMenu -q -ill qlCreateClothOptionMenuWnd`;
+		for($mitem in $mitems)
+		{
+			deleteUI -menuItem $mitem;
+		}
+		if(objExists($qlCurrentSolver)) {			
+			menuItem -label $qlCurrentSolver -p qlCreateClothOptionMenuWnd;
+		}
+		for($solver in $solvers)
+		{
+			if(objExists($qlCurrentSolver) && $solver == $qlCurrentSolver) continue;
+			menuItem -label $solver -p qlCreateClothOptionMenuWnd;
+		}
+		menuItem -label "New Solver" -p qlCreateClothOptionMenuWnd;		
+	}
+}
+global proc qlChangeCurrentSelectedSolverCB(string $value)
+{
+	global string $qlCurrentSolver;
+	$qlCurrentSolver = $value;	
+}
+global proc createQualothCreateClothOptionsLayout()
+{
+	global string $gQualothMenu;
+	global string $qlCurrentSolver;
+	global string $gQualothCreateClothOptionWindow;
+		
+	window -iconName "Qualoth > Create Cloth Options" -rtf true $gQualothCreateClothOptionWindow;
+
+	formLayout -w 320 -h 160 qlChooseSolver;
+	
+	formLayout qlCreateClothOptionsSelectForm;
+	optionMenu -label "Solver" -cc "qlChangeCurrentSelectedSolverCB \"#1\"" qlCreateClothOptionMenuWnd;
+		menuItem -label $qlCurrentSolver -p qlCreateClothOptionMenuWnd;	
+	button -label "Update Solver List" -c "qlUpdateQualothSolverList" qlUpdateQualothSolverListButton;
+	
+	formLayout -edit
+		-af qlCreateClothOptionMenuWnd "top" 5
+		-af qlCreateClothOptionMenuWnd "left" 5
+		
+		-af qlUpdateQualothSolverListButton "top" 5
+		-af qlUpdateQualothSolverListButton "right" 5
+		
+		qlCreateClothOptionsSelectForm;	
+		
+	setParent ..;
+	
+	formLayout qlCreateClothOptionsButtonForm;			
+	button -label "Create and Close" -c "qlApplyCreateClothOptions; window -e -visible false $gQualothCreateClothOptionWindow" qlCreateClothOptionsApplyAndCloseButton;
+	button -label "Create" -c "qlApplyCreateClothOptions" qlCreateClothOptionsApplyButton;
+	button -label "Close" -c "window -e -visible false $gQualothCreateClothOptionWindow" qlCreateClothOptionsCloseButton;
+	
+
+
+		
+	formLayout -edit
+        -af qlCreateClothOptionsApplyAndCloseButton "left" 5 
+        -af qlCreateClothOptionsApplyAndCloseButton "bottom" 5
+        -ap qlCreateClothOptionsApplyAndCloseButton "right" 5 33 
+
+        -ac qlCreateClothOptionsApplyButton "left" 5 qlCreateClothOptionsApplyAndCloseButton
+        -af qlCreateClothOptionsApplyButton "bottom" 5
+        -ap qlCreateClothOptionsApplyButton "right" 5 66
+
+        -ac qlCreateClothOptionsCloseButton "left" 5 qlCreateClothOptionsApplyButton
+        -af qlCreateClothOptionsCloseButton "right" 5
+        -af qlCreateClothOptionsCloseButton "bottom" 5
+            
+       qlCreateClothOptionsButtonForm;
+       
+    formLayout -edit
+		-af qlCreateClothOptionsSelectForm "top" 5
+		-af qlCreateClothOptionsSelectForm "left" 5
+		-af qlCreateClothOptionsSelectForm "right" 5
+		-ac qlCreateClothOptionsSelectForm "bottom" 5 qlCreateClothOptionsButtonForm
+		
+		-af qlCreateClothOptionsButtonForm "left" 5
+		-af qlCreateClothOptionsButtonForm "right" 5
+		-af qlCreateClothOptionsButtonForm "bottom" 5
+		
+		qlChooseSolver;
+}
+
+global proc qlCreateClothOptions()
+{
+	global string $gQualothCreateClothOptionWindow = "qlCreateClothOptionWnd";
+
+	if( ! `window -q -exists $gQualothCreateClothOptionWindow` )
+	{
+		createQualothCreateClothOptionsLayout();
+	}
+	
+	qlUpdateQualothSolverList();
+
+	window -edit -title "Create Cloth/Pattern Options" $gQualothCreateClothOptionWindow;
+
+	showWindow $gQualothCreateClothOptionWindow;
+}

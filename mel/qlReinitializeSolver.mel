@@ -1,0 +1,45 @@
+global proc int qlReinitializeSolver() 
+{
+	string $sims[];
+	string $clothes[];
+	string $sim;
+	string $cloth;
+	string $nodes[];
+
+	$clothes = qlGetClothes();
+	$sims = qlGetSimulators();
+	
+	if(size($sims) == 0 && size($clothes) == 0) 
+	{
+		return 0;
+	}
+	
+	if(size($sims)>0 && size($clothes)==0)
+	{
+		for($sim in $sims)
+		{
+			$nodes = qlGetClothesBelongToThisSolver($sim);
+			$clothes = stringArrayCatenate($clothes, $nodes);
+		}
+	}
+
+	for($sim in $sims)
+	{
+		//currentTime -e `getAttr ($sim+".startTime")`;
+		//qlTruncateSimCache($sim);
+		setAttr ($sim+".fu") 1;
+	}
+	
+	for($cloth in $clothes)
+	{
+		if($cloth=="") continue;
+		currentTime -e (`getAttr ($cloth+".startTime")`-1);
+		qlTruncateSimCache($cloth);
+		setAttr ($cloth+".fu") 1;
+		currentTime -e `getAttr ($cloth+".startTime")`;
+		dgeval ($cloth+".outputMesh");
+		//setAttr ($cloth+".fu") 0;
+	}
+	
+	return 1;
+}

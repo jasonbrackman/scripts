@@ -1,0 +1,2483 @@
+//- animation develop/release 관련 UI 및 실행
+	
+	
+	//- b2SaveAniDevUI //--------------------------------------------------------------------------------------------------------------------------//
+	//기능		: 애니메이션 dev 파일을 저장하는 UI를 표시	
+	global proc b2SaveAniDevUI()
+	{
+		print "b2SaveAniDevUI.........................................................................................................procedure start\n";
+		// UI에 표시할 씬 기본정보 생성
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		string $fileName = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "nextDevelop" 0`;
+			$fileName = `basenameEx $fileName`;
+		string $buffer[] = stringToStringArray( $fileName, "_" );		
+		string $versionStr = $buffer[size($buffer) - 2];
+		string $shtName = $buffer[0]; //샷 이름
+		for( $i = 1; $i < 4; $i ++ )
+		{
+			$shtName += "_" + $buffer[$i];
+		}
+		string $defFile = `b2GetFileName2 $selItem[0] $selItem[1] "" "" 0 "folder" 0`;// def.xml파일 경로
+			$defFile = $defFile + "/" + $selItem[1] + "_def.xml";
+		string $shtInfo[] = `b2GetShotDefInfo $defFile`; // def.xml에 기록된 셋업 정보 입수
+		string $defFps = $shtInfo[5];
+		
+		//현재 씬 셋업 정보
+		int $currXRes = `getAttr defaultResolution.width`;
+		int $currYRes = `getAttr defaultResolution.height`;
+		int $currStFrame = `playbackOptions -q -min`;
+		int $currEdFrame = `playbackOptions -q -max`;
+		string $currFps = `currentUnit -q -time`;
+		string $disMatchInfo[];
+		
+		if( $selItem[3] == "" )
+		{
+			confirmDialog -title "Error!" -message "샷 컴포넌트 레이어를 선택해주세요";
+		}
+		else
+		{
+			if( `window -exists b2SubWin1` )
+			{
+				deleteUI b2SubWin1;
+			}
+			string $tempDir = "c:/b2PipelineSnapshot/";
+			int $testValue = `filetest -d $tempDir`;
+			if( $testValue == 0 )
+			{
+				sysFile -makeDir $tempDir;
+			}
+			string $existingFiles[] = `getFileList -folder $tempDir -filespec "*.jpg"`;
+			if( size($existingFiles) != 0 )
+			{
+				for( $item in $existingFiles )
+				{
+					string $filename = $tempDir + "/" + $item;
+					sysFile -delete $filename;
+				}
+			}
+			
+			// UI todt
+			string $window = `window -title "b2SaveShotDev" -sizeable false b2SubWin1`;
+				string $rootLayout = `columnLayout -columnWidth 610 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 10`;
+					separator;
+					rowLayout -numberOfColumns 2 -columnWidth 1 275 -columnWidth 2 320;
+						columnLayout -rowSpacing 5;
+							text -label "Shot Definition Info" -font boldLabelFont;
+							rowColumnLayout -numberOfColumns 2 -rowSpacing 1 3 -columnWidth 1 90 -columnWidth 2 160 -columnAlign 1 "right" -columnAlign 2 "left";
+								separator; separator;
+								text -label "Shot Name :  ";
+								text -label $shtName -font "obliqueLabelFont" shtNameInfoTxt1;
+								separator -style "in"; separator -style "in";
+								text -label "Version :  ";
+								text -label $versionStr -font "obliqueLabelFont" versionInfoTxt1;
+								separator -style "in"; separator -style "in";
+						setParent ..;
+							rowColumnLayout -numberOfColumns 4 -rowSpacing 1 3 -columnWidth 1 90 -columnWidth 2 35 -columnWidth 3 90 -columnWidth 4 35
+								-columnAlign 1 "right" -columnAlign 2 "left" -columnAlign 3 "right" -columnAlign 4 "left";
+								text -label "Image Width :  ";
+								text -label $shtInfo[1] -font "obliqueLabelFont" resXInfoTxt1;
+								text -label "Image Height :  ";
+								text -label $shtInfo[2] -font "obliqueLabelFont" resYInfoTxt1;
+								separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+								text -label "Start Frame :  ";
+								text -label $shtInfo[3] -font "obliqueLabelFont" stFrameInfoTxt1;
+								text -label "End Frame :  ";
+								text -label $shtInfo[4] -font "obliqueLabelFont" edFrameInfoTxt1;
+								separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+								text -label "Frame Rate :  ";
+								text -label $defFps -font "obliqueLabelFont" fpsInfoTxt1;
+								text -label ""; text -label "";
+								separator; separator; separator; separator;
+						setParent ..;
+							text -label "Artist's Comment" -font "boldLabelFont";
+							scrollField -width 250 -height 110 -wordWrap true -text "작업 진행 내용을 구체적으로 기록해 주세요.\n대쉬문자( - )는 사용하면 안됩니다." commentField;
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							frameLayout -label "Preview Image" -bgc 0 0 0 -width 320 -height 240;
+								image -width 320 -height 240 aniSnapshotImg;
+						setParent ..;
+							button -label "Take Snapshot" -width 320 -command "b2TakeSnapshotSingle aniSnapshotImg";					
+				setParent $rootLayout;
+					separator;
+					string $movSelect = `textFieldButtonGrp -columnWidth3 70 450 100 -editable false
+									-label "Playblast File :" -text "Select playblast file" -buttonLabel "  Browse...  " -buttonCommand "b2FileDialog fileMulti mov selectMovField" selectMovField`;
+					separator;
+					frameLayout -label "Warning Message" -width 600 -collapsable true -collapse 1 warningMessageLayout;
+						scrollField -width 588 -height 150 warningMessageField;
+				setParent $rootLayout;
+					separator;
+					rowLayout -numberOfColumns 2;
+						button -label "Save" -width 298 -bgc 0.5 0.8 0.5 -command "b2DoSaveAniDev dev" saveButton;
+						button -label "Cancel" -width 298 -bgc 0.8 0.5 0.5 -command "deleteUI b2SubWin1";
+
+			showWindow $window;
+			
+			// 카메라 이름 확인
+			int $checkCam = `b2CheckCamName`;
+			if( $checkCam == 0 )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "cam_main 카메라가 없습니다. 이 문제를 해결하지 않으면 씬을 저장할 수 없습니다.";
+				button -edit -enable false saveButton;
+			}
+			else if( $checkCam == 2 )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "두개 이상의 cam_main 카메라가 있습니다. 이 문제를 해결하지 않으면 씬을 저장할 수 없습니다.";
+				button -edit -enable false saveButton;
+			}
+			else if( $checkCam == 3)
+			{
+				$disMatchInfo[size($disMatchInfo)] = "cam_main 카메라의 프레임 정보가 샷의 설정과 다릅니다. 이 문제를 해결하지 않으면 씬을 저장할 수 없습니다.";
+				button -edit -enable false saveButton;
+			}
+			//기본 샷 설정과 현재 씬 설정이 일치하지 않는 경우 UI에 표시
+			if( $shtInfo[1] != $currXRes || $shtInfo[2] != $currYRes )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "현재 Resolution 정보가 샷의 기본 설정과 다릅니다.";
+				text -edit -bgc 1 1 0 resXInfoTxt1;
+				text -edit -bgc 1 1 0 resYInfoTxt1;
+			}
+			if( $shtInfo[3] != $currStFrame || $shtInfo[4] != $currEdFrame )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "현재 Frame range 정보가 샷의 기본 설정과 다릅니다.";
+				text -edit -bgc 1 1 0 stFrameInfoTxt1;
+				text -edit -bgc 1 1 0 edFrameInfoTxt1;
+			}
+			if( $defFps != $currFps )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "현재 FPS 정보가 샷의 기본 설정과 다릅니다.";
+				text -edit -bgc 1 1 0 fpsInfoTxt1;
+			}
+			if( size($disMatchInfo) )
+			{
+				string $warningMessage = "=================================================================\n";
+				$warningMessage += "이 씬의 설정이 샷의 기본정보와 일치하지 않는 부분이 있습니다.\n앞으로 문제를 일으킬 수 있으므로 확인 후 계속 해 주세요!\n";
+				$warningMessage += "=================================================================\n";
+				
+				for( $eachInfo in $disMatchInfo )
+				{
+					$warningMessage += $eachInfo + "\n";
+				}
+				frameLayout -edit -collapse 0 warningMessageLayout;
+				scrollField -edit -bgc 1 1 0 -text $warningMessage warningMessageField;
+			}
+		}
+		print "b2SaveAniDevUI.........................................................................................................  procedure end\n";
+	}
+
+	
+	//-/
+
+	
+	//- b2DoSaveAniDev //--------------------------------------------------------------------------------------------------------------------------//
+	//기능		- 샷 컴포넌트 세이브 실행
+	//입력		- 없음
+	//작동절차	- 1. 현재 씬의 셋업 정보와 def.xml에 저장된 정보를 비교
+	//			- 2. 스냅샷과 코멘트, playblast등 확인
+	//			- 3. 저장될 버전으로 scene name을 갱신한 후 develop버전 저장, 스냅샷과 playblast 전송, 히스토리 기록을 순차적으로 실행
+	//			- 4. 3번의 단계에서 실패가 발생할 경우 그 때까지 저장한 파일과 디렉토리를 디렉토리를 삭제한 후 경고를 띄운 뒤 멈춘다.
+	//출력		- 없음
+
+	global proc b2DoSaveAniDev( string $key )
+	{
+		print "b2DoSaveShotCompo......................................................................................................procedure start\n";
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		string $origFileName = `file -q -sceneName`;
+		string $userName = `optionVar -q "userName"`;
+		string $targetFile = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "nextDevelop" 0`;
+		string $targetBaseName = `basenameEx $targetFile`;
+		string $dirPath = `dirname $targetFile`;
+		string $infoFile = $dirPath + "/" + $targetBaseName + "_info.xml"; 
+		int $verArray[] = `b2GetVersionFromFile $targetFile "v"`;
+		string $ver = b2Pad ($verArray[0], 3);
+		string $historyFile = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "historyFile" 0`;
+		string $comment = `scrollField -q -tx commentField`;
+		string $sourceMov = `textFieldButtonGrp -q -text selectMovField`;
+		string $sourceMovBaseName = (`basenameEx $sourceMov` + ".mov");
+		string $targetMov;
+		int $cleanupResult;
+		string $cleanupFailDialog = "confirmDialog -title \"Error!\" -message (\"새로 생성한 다음 디렉토리를 삭제하지 못했습니다. 수동으로 삭제해주세요!\\n\" + $dirPath)";
+		
+		//현재 씬 정보
+		string $shtInfoArray[] = `b2GetCurrSceneInfo`;
+		$shtInfoArray[0] = $targetBaseName;
+		
+		//스냅샷 체크
+		if( `image -q -image aniSnapshotImg` != "" )
+		{
+			//playbalst 체크
+			if( $sourceMov != "Select playblast file" )
+			{
+				//comment 체크
+				if( $comment != "작업 진행 내용을 간단히 요약해주세요" )
+				{
+					//파일 저장 후 부속 작업 실행
+					//- 
+					setNamedPanelLayout "Four View";
+					// b2CloseAllWin;
+					b2ResetViewportRender;
+
+					int $result1 = `b2SaveScene $targetFile`; //마야파일 저장
+					if( $result1 )
+					{
+						int $fileId = `fopen $infoFile "w"`;
+						fclose $fileId;	
+						b2SaveShotDefInfo $shtInfoArray $infoFile;
+						int $result2 = `b2CopySnapshot "sht" $targetFile`; //스냅샷 전송
+						if( $result2 )
+						{
+							$targetMov = $dirPath + "/" + $targetBaseName + ".mov";
+							int $result3 = `b2CopyFile $sourceMov $targetMov`; //playblast 전송
+							if( $result3 )
+							{
+								int $result4 = `b2AddCommentToHistory $historyFile "develop" $ver $userName $comment`;
+								if( $result4 )
+								{
+									b2UpdHistory "sht"; //히스토리 디스플레이 갱신
+									if( $key == "dev" )
+									{
+										string $closeConfirm = `confirmDialog -title "Info" -message "파일이 무사히 서버에 저장되었습니다.\n현재 씬을 닫으시겠습니까?"
+											-button "Yes" -button "No" -defaultButton "Yes" -cancelButton "No" -dismissString "No"`;
+										if( $closeConfirm == "Yes" )
+										{
+											file -force -new;
+										}
+										deleteUI "b2SubWin1";
+									}
+									else if( $key == "rel" )
+									{
+										confirmDialog -title "Info" -message "Develop 파일이 저장되었습니다. 지금부터 Release를 시작합니다.";
+									}
+								}
+
+							}
+							else
+							{
+								confirmDialog -title "Error" -message "playblast 파일을 전송하지 못했습니다!";
+								$cleanupResult = `b2DeleteDir $dirPath`;
+								if (!$cleanupResult)
+								{
+									eval $cleanupFailDialog;
+								}					
+							}
+						}
+						else
+						{
+							confirmDialog -title "Error" -message "스냅샷을 저장하지 못했습니다";
+							$cleanupResult = `b2DeleteDir $dirPath`;
+							if (!$cleanupResult)
+							{
+								eval $cleanupFailDialog;
+							}
+						}
+					}
+					else
+					{
+						confirmDialog -title "Error" -message "실패! 파일을 저장하지 못했습니다.";
+						$cleanupResult = `b2DeleteDir $dirPath`;
+						if( !$cleanupResult )
+						{
+							eval $cleanupFailDialog;
+						}
+					}
+					//-/	
+				}
+				else
+				{
+					confirmDialog -title "Error!" -message "코멘트를 입력해주세요";			
+				}
+			}
+			else
+			{
+				confirmDialog -title "Error!" -message "Playblast 파일을 선택하지 않으셨습니다!";			
+			}
+		}
+		else
+		{
+			confirmDialog -title "Error!" -message "스냅샷을 찍어주세요";		
+		}
+		print "b2DoSaveShotCompo........................................................................................................procedure end\n";
+	}
+
+	//-/
+
+	
+	//- b2SaveAniRelUI //--------------------------------------------------------------------------------------------------------------------------//
+
+	global proc int b2SaveAniRelUI()
+	{
+		print "b2SaveAniRelUI.........................................................................................................procedure start\n";
+		if ( `window -exists b2SubWin1` )
+		{
+			deleteUI b2SubWin1;
+		}
+		
+		string $tempDir = "c:/b2PipelineSnapshot/";// 임시 디렉토리에 있는 기존의 스냅샷 이미지를 제거
+		int $testValue = `filetest -d $tempDir`;
+		if( $testValue == 0 )
+		{
+			sysFile -makeDir $tempDir;
+		}
+		string $existingFiles[] = `getFileList -folder $tempDir -filespec "*.jpg"`;
+		if( size($existingFiles) != 0 )
+		{
+			for( $item in $existingFiles )
+			{
+				string $targetName = ($tempDir + "/" + $item);
+				sysFile -delete $targetName;
+			}
+		}
+					
+	//	b2ChangeLodToHi; // 모든 레퍼런스의 LOD를 최 상위로 변경
+		
+		string $selectedItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		string $develFileName = `b2GetFileName2 $selectedItem[0] $selectedItem[1] $selectedItem[2] $selectedItem[3] 0 develop 0`;
+		string $devVersionString = `match "v[0-9]{3}" $develFileName`;
+		$devVersionString = substituteAllString ( $devVersionString, "v", "");
+		string  $releaseDirName = basename(`b2GetFileName2 $selectedItem[0] $selectedItem[1] $selectedItem[2] $selectedItem[3] $devVersionString "nextRelease" 0`, "");
+		string $shotName = $selectedItem[0] + "_" + $selectedItem[1] + "_" + $selectedItem[2] + "-" + $selectedItem[3];
+		string $shtInfoArray[] = `b2GetCurrSceneInfo`;
+		string $resolution = $shtInfoArray[1] + "x" + $shtInfoArray[2];
+		string $frameRange = $shtInfoArray[3] + "-" + $shtInfoArray[4];
+		string $frameRate = $shtInfoArray[5];
+		
+		//UI 시작.
+		string $window = `window -title "b2ShotReleaseTool" -sizeable false b2SubWin1`;
+			string $rootLayout = `columnLayout -columnWidth 610 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 10 b2SubWin1RootLayout`;
+			//- 샷 정보 디스플레이	
+				separator;
+				rowLayout -numberOfColumns 2 -columnWidth 1 275 -columnWidth 2 320;
+					columnLayout -rowSpacing 5;
+						text -label "Shot Definition Info" -font boldLabelFont;
+						rowColumnLayout -numberOfColumns 2 -rowSpacing 1 3 -columnWidth 1 90 -columnWidth 2 160 -columnAlign 1 "right"-columnAlign 2 "left";
+							separator; separator;
+							text -label "Shot Name :  ";
+							text -label $shotName -font "obliqueLabelFont" shtNameInfoTxt1;
+							separator -style "in"; separator -style "in";
+							text -label "ReleaseVersion :  ";
+							text -label $releaseDirName -font "obliqueLabelFont" versionInfoTxt1;
+							separator -style "in"; separator -style "in";
+					setParent ..;
+						rowColumnLayout -numberOfColumns 4 -rowSpacing 1 3 -columnWidth 1 90 -columnWidth 2 35 -columnWidth 3 90 -columnWidth 4 35
+							-columnAlign 1 "right" -columnAlign 2 "left" -columnAlign 3 "right" -columnAlign 4 "left";
+							text -label "Image Width :  ";
+							text -label $shtInfoArray[1] -font "obliqueLabelFont" resXInfoTxt1;
+							text -label "Image Height :  ";
+							text -label $shtInfoArray[2] -font "obliqueLabelFont" resYInfoTxt1;
+							separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+							text -label "Start Frame :  ";
+							text -label $shtInfoArray[3] -font "obliqueLabelFont" stFrameInfoTxt1;
+							text -label "End Frame :  ";
+							text -label $shtInfoArray[4] -font "obliqueLabelFont" edFrameInfoTxt1;
+							separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+							text -label "Frame Rate :  ";
+							text -label $shtInfoArray[5] -font "obliqueLabelFont" fpsInfoTxt1;
+							text -label ""; text -label "";
+							separator; separator; separator; separator;
+					setParent ..;
+						text -label "Artist's Comment" -font "boldLabelFont";
+						scrollField -width 250 -height 110 -wordWrap true -text "릴리즈 하는 내용을 간단히 요약해 주세요.\n대쉬문자( - )는 사용하면 안됩니다." commentField;
+				setParent ..;
+					columnLayout -rowSpacing 5;
+						frameLayout -label "Preview Image" -bgc 0 0 0 -width 320 -height 240;
+							image -width 320 -height 240 aniSnapshotImg;
+					setParent ..;
+						button -label "Take Snapshot" -width 320 -command "b2TakeSnapshotSingle aniSnapshotImg";					
+			setParent $rootLayout;
+				separator;
+				string $movSelect = `textFieldButtonGrp -columnWidth3 70 450 100 -editable false
+								-label "Playblast File :" -text "Select playblast file" -buttonLabel "  Browse...  " -buttonCommand "b2FileDialog fileMulti mov selectMovField" selectMovField`;
+				separator;
+			//-/
+			
+			//- 카메라, 어셋, 배경 선택 UI
+			setParent $rootLayout;
+				frameLayout -label "Camera" -width 600 -collapsable true; //카메라 리스트
+					rowLayout -numberOfColumns 3;
+						columnLayout -rowSpacing 5;
+							text -label "All Cameras";
+							string $camListAll = `textScrollList -width 268 -height 50 -numberOfRows 10 -allowMultiSelection true camListAll`;
+							button -label "Select All / None" -width 268 -command "b2ToggleSelectAllFromList camListAll";
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							button -label "->" -width 48 -command "b2MoveItemBetweenList camListAll camListSel";
+							button -label "<-" -width 48 -command "b2MoveItemBetweenList camListSel camListAll";
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							text -label "Selected Cameras";
+							string $camListSel = `textScrollList -width 268 -height 50 -numberOfRows 10 -allowMultiSelection true camListSel`;
+							button -label "Select All / None" -width 268 -command "b2ToggleSelectAllFromList camListSel";
+			setParent $rootLayout;
+				frameLayout -label "Characters" -width 400 -collapsable true; // 캐릭터 리스트
+					rowLayout -numberOfColumns 3;
+						columnLayout -rowSpacing 5;
+							text -label "All Characters";
+							string $chaLstAll = `textScrollList -width 268 -height 100 -allowMultiSelection true chaLstAll`;
+							button -label "Select All / None" -width 268 -command "b2ToggleSelectAllFromList chaLstAll";
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							button -label "->" -width 48 -command "b2MoveItemBetweenList chaLstAll chaLstSel";
+							button -label "<-" -width 48 -command "b2MoveItemBetweenList chaLstSel chaLstAll";
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							text -label "Selected Characters";
+							string $chaLstSel = `textScrollList -width 268 -height 100 -allowMultiSelection true chaLstSel`;
+							button -label "Select All / None" -width 268 -command "b2ToggleSelectAllFromList chaLstSel";
+			setParent $rootLayout;					
+				frameLayout -label "Props and Other Assets" -width 600 -collapsable true; // 프랍과 기타 어셋 리스트
+					rowLayout -numberOfColumns 3;
+						columnLayout -rowSpacing 5;
+							text -label "All Props and Other Assets";
+							string $propLstAll = `textScrollList -width 268 -height 100 -allowMultiSelection true propLstAll`;
+							button -label "Select All / None" -width 268 -command "b2ToggleSelectAllFromList propLstAll";
+						setParent ..;
+							columnLayout;
+								button -label "->" -width 48 -command "b2MoveItemBetweenList propLstAll propLstSel";
+								button -label "<-" -width 48 -command "b2MoveItemBetweenList propLstSel propLstAll";
+						setParent ..;
+							columnLayout -rowSpacing 5;
+								text -label "Selected Props and Other Assets";
+								string $propLstSel = `textScrollList -width 268 -height 100 -allowMultiSelection true propLstSel`;
+								button -label "Select All / None" -width 268 -command "b2ToggleSelectAllFromList propLstSel";					
+			setParent $rootLayout;
+				frameLayout -label "Set(Background)"; // 배경 리스트
+					rowLayout -numberOfColumns 3;
+						columnLayout -rowSpacing 5;
+							text -label "All Set Assets";
+							string $bgSetListAll = `textScrollList -width 268 -height 50 -allowMultiSelection true bgSetListAll`;
+							button -label "Select All / None" -width 268 -command "b2ToggleSelectAllFromList bgSetListAll";
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							button -label "->" -width 48 -command "b2MoveItemBetweenList bgSetListAll bgSetListSel";
+							button -label "<-" -width 48 -command "b2MoveItemBetweenList bgSetListSel bgSetListAll";
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							text -label "Selected Set Assets";
+							string $bgSetListSel = `textScrollList -width 268 -height 50 -allowMultiSelection true bgSetListSel`;
+							button -label "Select All / None" -width 268 -command "b2ToggleSelectedAllFromList bgSetListSel";
+			//-/
+			setParent $rootLayout;
+				separator;
+				rowLayout -numberOfColumns 2;
+					button -label "Release!" -width 298 -bgc 0.5 0.8 0.5 -command "b2ReleaseAni";
+					button -label "Cancel" -width 298 -bgc 0.8 0.5 0.5 -command "deleteUI b2SubWin1";
+				
+				
+		//- 리스트 아이템 생성 
+		b2TakeSnapshotSingle aniSnapshotImg;
+		string $camItems[] = `b2GetCameraList`;
+		for ($cam in $camItems)
+		{
+			textScrollList -edit -append $cam $camListAll;
+		}
+		string $chaLst[] = `b2GetAbcExportAstList "cha"`;
+		for ($cha in $chaLst)
+		{
+			textScrollList -edit -append $cha $chaLstAll;
+		}
+		string $bgSets[] = `b2GetBGSetList`;
+		for ($bg in $bgSets)
+		{
+			textScrollList -edit -append $bg $bgSetListAll;
+		}
+		string $etcLst[] = `b2GetAbcExportAstList "!cha"`;
+		string $nonChaLst[] = stringArrayRemoveExact( $bgSets, $etcLst );
+		for( $etc in $nonChaLst )
+		{
+			textScrollList -edit -append $etc $propLstAll;
+		}
+		//-/
+		
+	//	string $camResult = `b2aniBakeAndExportCam $camName $camNum`;
+		showWindow b2SubWin1;
+		return 1;
+		print "b2SaveAniRelUI...........................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2RleaseAni //-----------------------------------------------------------------------------------------------------------------------------//
+
+	// 기능		- 애니메이션 릴리즈
+	// 입력		- 없음
+	// 작동절차	- 열려있는 씬을 develop으로 저장한 뒤 UI에서 선택된 아이템들을 해당되는 procedure를 통해 release하고 내용을 info 파일에 기록.
+	//			- info 파일의 내용을 이용해 reference용 .ma파일 생성
+	//			- 1. 카메라는 직접 .ma파일을 생성 하므로 skip
+	//			- 2. 캐쉬파일을 생성한 아이템은 해당 어셋을 임포트하여 캐쉬를 붙인 .ma파일 생성
+	//			- 3. .editMA파일을 이용하는 아이템도 .ma생성 안함
+
+	global proc b2ReleaseAni()
+	{
+		print "b2SaveReleaseAni...................................................................................................procedure start\n";
+
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		string $sourceMov = `textFieldButtonGrp -q -text selectMovField`;
+		
+		//snapshot 체크
+		string $tmpDir = "c:/b2PipelineSnapshot/";
+		int $imgCheck = `filetest -f ( $tmpDir + "snapshotSingle.jpg")`;
+		if( $imgCheck == 0)
+		{
+			confirmDialog -title "Error" -message "스냅샷 이미지가 디스크에 없습니다!";
+		}
+		else
+		{
+			//playblast 체크
+			if($sourceMov == "Select playblast file")
+			{
+				confirmDialog -title "Error!" -message "Playblast 파일을 선택하지 않으셨습니다!";
+			}
+			else
+			{
+				//comment 체크
+				string $comment = `scrollField -q -text commentField`;
+				if( $comment == "릴리즈 하는 내용을 간단히 요약해주세요" )
+				{
+					confirmDialog -title "Error!" -message "코멘트를 입력하지 않았습니다!";
+				}
+				else
+				{
+					//develop 파일 정보 생성
+					string $devFileName = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 nextDevelop 0`; 
+						$devFileName = `basename $devFileName ""`;
+					string $devVerStr = `match "v[0-9]{3}" $devFileName`;
+						$devVerStr = substituteAllString ( $devVerStr, "v", "");
+					int $devVerNum = $devVerStr;
+					
+					//릴리즈 파일 정보 생성
+					string $releasePath = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 nextRelease 0`;
+					string $fileNameBase = ($selItem[0] + "_" + $selItem[1] + "_" + $selItem[2] + "_" + $selItem[3]);
+					string $relVerStr = basename ($releasePath, "");
+					int $relVerNum = `match "[0-9]{3}" $relVerStr`;
+					string $historyFile = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "historyFile" 0`;
+					string $targetMov = $releasePath + "/" + $fileNameBase + "_" + $relVerStr + ".mov";
+					string $comment = `scrollField -q -text commentField`;
+						$comment += ("\n=====================================\n다음 파일로부터 릴리즈 되었습니다:\n" + $devFileName + "\n");
+
+					//릴리즈 폴더 생성
+					if( !`filetest -d $releasePath`)
+					{
+						sysFile -makeDir $releasePath;
+					}
+					
+					
+					//애니메이션 및 카메라 포맷 정보 생성
+					int $startFrame = `playbackOptions -q -min`;
+					int $endFrame = `playbackOptions -q -max`;	
+					int $simStartFrame = ($startFrame - 5);
+					int $simEndFrame = ($endFrame + 5);
+					string $frameRate = `text -q -label fpsInfoTxt1`;
+						$frameRate = `strip $frameRate`;
+					string $width = `text -q -label resXInfoTxt1`;
+					string $height = `text -q -label resYInfoTxt1`;
+					string $pxRatio = `getAttr defaultResolution.pixelAspect`;
+					
+					//히스토리 정보 생성
+					string $basicInfo[] = { `getenv userName`, "release", $relVerNum, $devVerNum, "" };
+					string $shotInfo[] = { $fileNameBase, $width, $height, $startFrame, $endFrame, $frameRate, $pxRatio };
+					
+					//Develop 실행
+					b2DoSaveAniDev "rel";
+					
+					//모든 어셋을 lod03으로 변경
+					print "Changing all assets to lod03...\n";
+					b2ChangeLodToHi;
+					print "All assets are now lod03\n";
+					
+					// 카메라 릴리즈
+					print "Exporting cameras...\n";
+					string $camReleaseResult[] = `b2ReleaseCam $releasePath $fileNameBase $relVerStr`;
+					if( $camReleaseResult[0] == 1 )
+					{
+						print "All camera exportations complete.\n";
+					}
+					else
+					{
+						print "Camera exportation failed!\n";
+					}
+					// 배경 릴리즈(editMA)
+					print "Exporting set(background) assets...\n";
+					string $bgReleaseResult[] = `b2ReleaseOffline "bgSetListSel" $releasePath $fileNameBase $relVerStr`;
+					if( $bgReleaseResult[0] == 1 )
+					{
+						print "All set(background) assets are exported successfully\n";
+					}
+					else
+					{
+						print "Set(background) exportation failed!\n";
+					}
+					// 캐릭터 애니메이션 릴리즈(alembic)
+					print "Exporting character animation as alembic cache...\n";
+					string $charReleaseResult[] = `b2releaseAbc "chaLstSel" $releasePath $fileNameBase $relVerStr $simStartFrame $simEndFrame`;
+					if( $charReleaseResult[0] == 1 )
+					{
+						print "All character animations are exported successfully.\n";
+					}
+					else
+					{
+						print "Character animation exportation failed.\n";
+					}
+					
+					// 프랍과 기타 어셋 애니메이션 릴리즈(alembic)
+					print "Exporting all other animations as alembic cache...\n";
+					string $propReleaseResult[] = `b2releaseAbc "propLstSel" $releasePath $fileNameBase $relVerStr $simStartFrame $simEndFrame`;
+					if( $propReleaseResult[0] == 1 )
+					{
+						print "All props and other asset animations are exported successfully.\n";
+					}
+					else
+					{
+						print "Animation exportation for props and other assets failed.\n";
+					}
+					
+					
+					//릴리즈 한 파일 리스트
+					string $camList[] = $camReleaseResult;
+					stringArrayRemoveAtIndex( 0, $camList );				
+					string $setList[] = $bgReleaseResult;
+					stringArrayRemoveAtIndex( 0, $setList );
+					string $charListTmp[] = $charReleaseResult;
+					stringArrayRemoveAtIndex( 0, $charListTmp );
+					string $propList[] = $propReleaseResult;
+					stringArrayRemoveAtIndex( 0, $propList );
+
+					//캐릭터 릴리즈 리스트와 아이템에 대한 extra info 정리
+					int $charInfoCount = size($charReleaseResult);
+					string $charList[];
+					string $extraInfo[];
+					
+					if( $charInfoCount )
+					{
+						for( $item in $charListTmp )
+						{
+							string $buffer[] = `stringToStringArray $item "*"`;
+							$charList[size($charList)] = $buffer[0];
+							if (size($buffer) > 1)
+							{
+								for ($i = 1; $i < size($buffer); $i ++)
+								{
+									$extraInfo[size($extraInfo)] = $buffer[$i];
+								}
+							}
+						}
+					}
+
+					string $addHistoryResult = `b2AddCommentToHistory $historyFile "release" $relVerNum $basicInfo[0] $comment`;
+					string $releaseInfoResult = `b2CreateReleaseInfo $releasePath $fileNameBase $basicInfo $shotInfo $camList $charList $propList $setList $extraInfo`;
+					
+					b2CopySnapshot "sht" ($releasePath + "/" + $fileNameBase);//snapshot 전송
+					b2CopyFile $sourceMov $targetMov; //playblast 전송
+					
+					if( $camReleaseResult[0] == 1 && $bgReleaseResult[0] == 1 && $charReleaseResult[0] == 1 && $propReleaseResult[0] == 1 )
+					{
+						// int $buildSceneFile = `b2BuildReleasedScene $releasePath`;
+						deleteUI b2SubWin1;
+						b2UpdHistory "sht";
+						confirmDialog -message "샷 릴리즈가 완료되었습니다.\n중복저장을 막기 위해 현재 열려있는 씬을 닫겠습니다.";
+						file -force -new;
+					}
+					else
+					{
+						confirmDialog -title "Error!" -message "애니메이션을 Release하는 과정에서 문제가 있었습니다. 결과를 확인하시기 바랍니다.";
+						deleteUI b2SubWin1;						
+					}
+				}
+			}
+		}
+		print "b2SaveReleaseAni.....................................................................................................procedure end\n";
+	}
+	//-/
+
+	
+//-/
+
+
+//- 애니메이션 릴리즈 sub-procedure
+
+
+	//- disconnectTransform //---------------------------------------------------------------------------------------------------------------------//
+	// transform node에 key 나 lock 등이 걸려있는 경우 끊어줍니다.
+/* 	global proc disconnectTransform(string $node)
+	{
+		print "disconnectTransform....................................................................................................procedure start\n";
+		
+		string $keyAttrs[]= { "tx" , "ty" , "tz" , "rx" , "ry" , "rz" };
+		
+		//잠긴 어트리뷰트 잠금 해제
+		for($attr in $keyAttrs){
+			int $lockState = `getAttr -lock ($node + "." + $attr)`;
+			if($lockState == 1){
+				setAttr -lock off ($node + "." + $attr);
+			}	
+		}
+		
+		//채널 연결 끊기
+		for($attr in $keyAttrs){
+			string $con[]=`listConnections -source 1 -destination 0 -plugs 1 ($node+"."+$attr)`;
+			for ($eachCon in $con){
+				disconnectAttr $eachCon ($node+"."+$attr);
+			}
+			string $con[]=`listConnections -source 0 -destination 1 -plugs 1 ($node+"."+$attr)`;
+			for ($eachCon in $con){
+				disconnectAttr ($node+"."+$eachCon) $eachCon ;
+			}
+		}
+		print "disconnectTransform......................................................................................................procedure end\n";
+	} */
+	
+	global proc disconnectTransform(string $node)
+	{
+		print "disconnectTransform....................................................................................................procedure start\n";
+		
+		string $keyAttrs[]= `listAttr -keyable $node`;
+		
+		//잠긴 어트리뷰트 잠금 해제
+		for($attr in $keyAttrs){
+			int $lockState = `getAttr -lock ($node + "." + $attr)`;
+			if($lockState == 1){
+				setAttr -lock off ($node + "." + $attr);
+			}	
+		}
+		
+		//input이 있는 어트리뷰트만 골라내기
+		string $connectedAttr[];
+		for( $eachAttr in $keyAttrs )
+		{
+			string $input[] = `listConnections -source 1 -destination 0 -plugs 1 ( $node + "." + $eachAttr )`;
+			if( size($input) )
+			{
+				$connectedAttr[size($connectedAttr)] = $eachAttr;
+			}
+		}
+		
+		//채널 연결 끊기
+		for($eachConAttr in $connectedAttr)
+		{
+			string $conIn[]=`listConnections -source 1 -destination 0 -plugs 1 ($node+"."+$eachConAttr)`;
+			for ($eachCon in $conIn){
+				disconnectAttr $eachCon ($node+"."+$eachConAttr);
+			}
+			string $conOut[]=`listConnections -source 0 -destination 1 -plugs 1 ($node+"."+$eachConAttr)`;
+			for ($eachCon in $conOut)
+			{
+				disconnectAttr ($node+"."+$eachConAttr) $eachCon ;
+			}
+		}
+		print "disconnectTransform......................................................................................................procedure end\n";
+	}
+
+	//-/
+
+
+	//- b2ChangeLodToHi //-------------------------------------------------------------------------------------------------------------------------//
+	global proc b2ChangeLodToHi()
+	{
+		print "b2ChangeLodToHi..........................................................................................................procedure start\n";
+		string $refNodes[] = `ls -references`;
+
+		for ($node in $refNodes)
+		{
+			string $matchWord = `match "sharedReferenceNode" $node`;
+			if( !size($matchWord) )
+			{
+				string $match = `match ":" $node`;
+				if (!`size($match)`)
+				{
+					$fileName = `referenceQuery -filename -wcn $node`;
+					string $dirName = `dirname $fileName`;
+					string $baseName = `basenameEx $fileName`;
+					string $extStr = `endString $fileName 3`;
+
+					string $lodString = `match "_lod[0-9]{2}_" $baseName`;
+					if (size($lodString))
+					{
+						string $lod3Name = `substituteAllString $baseName $lodString "_lod03_"`;
+						string $lod03FilePath = $dirName + "/" + $lod3Name + $extStr;
+						print "$fileName =\n";
+						print $fileName;
+						print "\n";
+						print "$lod03FilePath =\n";
+						print $lod03FilePath;
+						print "\n";
+						if( $fileName != $lod03FilePath )
+						{
+							print ("chaging asset " + $node + " to lod03\n");
+							file -loadReference $node $lod03FilePath;
+						}
+						else
+						{
+							print ( "asset name \"" + $fileName + "\" is the only lod level asset.\n" );
+						}
+					}
+				}
+			}
+		}
+		print "b2ChangeLodToHi..........................................................................................................procedure end\n";
+	}
+
+
+	//-/
+	
+
+	//- b2ReleseCam - 카메라 릴리즈 //-------------------------------------------------------------------------------------------------------------//
+	global proc string[] b2ReleaseCam( string $releasePath, string $fileNameBase, string $relVerStr)
+	{	
+		print "b2ReleaseCam...........................................................................................................procedure start\n";
+		string $return[];
+		$return[0] = "0";
+		int $failCount = 0;
+		string $cameraList[] = `textScrollList -q -allItems camListSel`;
+		int $i = 1;
+		if( size($cameraList) )
+		{
+			for ($cam in $cameraList)
+			{
+				print "$cam =\n";
+				print $cam;
+				print "\n";
+				int $camChecksum = 0;
+				string $buffer[] = `stringToStringArray $cam "_"`; //카메라 이름 분해
+				string $exportName = $buffer[0] + "_" + $buffer[1]; //cam_main_101_220-->cam_main만 추출 
+				string $newCamName = $buffer[1] + `capitalizeString $buffer[0]`;
+				string $newCam[] = `duplicate -rr -un -n $newCamName $cam`; //카메라 복사(임시이름)
+				print "$newCam =\n";
+				print $newCam;
+				print "\n";
+				int $stFrame = `playbackOptions -q -min`; //시작 프레임 체크
+				int $endFrame = `playbackOptions -q -max`; //끝 프레임 체크
+				string $camGrp = `group -em -name ("s" + $stFrame + "_e" + $endFrame + "_camG")`; //시작프레임과 끝프레임을 이용해 그룹이름 지정
+				print "$camGrp =\n";
+				print $camGrp;
+				print "\n";
+				parent $newCam[0] $camGrp;
+				
+				disconnectTransform $newCam[0];
+
+				pointConstraint $cam $newCam[0];
+				orientConstraint $cam $newCam[0];
+				
+				$stFrame = $stFrame - 5;
+				$endFrame = $endFrame +5;
+				bakeResults -simulation false -t ($stFrame +":" +$endFrame) -hierarchy below -sampleBy 1 
+					-disableImplicitControl true -preserveOutsideKeys true 
+					-sparseAnimCurveBake false -removeBakedAttributeFromLayer true 
+					-bakeOnOverrideLayer false -controlPoints true -shape true $newCam[0];
+
+				delete -icn -ch -cn -sc $newCam[0];
+				
+				int $makeDirResult = `sysFile -makeDir $releasePath`;
+				string $camFileName = $releasePath + "/" + $fileNameBase + "_" + $exportName + "_" + $relVerStr + ".ma";
+
+				select $newCam[0];
+				string $result = `file -force -options "v=0" -type "mayaAscii" -preserveReferences -exportSelected $camFileName`;
+				delete $newCam[0];
+				if (size($result))
+				{
+					$return[size($return)]  = $result;
+				}
+				else
+				{
+					confirmDialog -message ("카메라 " + $newCam[0] + " 를 릴리즈 하지 못했습니다!!");
+					$failCount ++; 
+				}
+				$i++;
+				
+			} 
+			if ($failCount == 0)
+			{
+				$return[0] = 1;
+			}
+			else
+			{
+				$return[0] = 0;
+			}
+		}
+		else
+		{
+			$return[0] = 1;
+		}
+		
+		print "b2ReleaseCam.............................................................................................................procedure end\n";
+		return $return;
+	}
+	//-/
+
+
+	//- b2ReleaseBG - 배경 릴리즈(사용 안함)
+	global proc string[] b2ReleaseBG( string $releasePath, string $fileNameBase, string $releaseVersionString)
+	{
+		print "b2ReleaseBG............................................................................................................procedure start\n";
+		string $bgSetNsList[] = `textScrollList -q -allItems bgSetListSel`;
+		if (size($bgSetNsList))
+		{
+			string $return[];
+			$return[0] = 0;
+			string $bgSetList[];
+			for ($set in $bgSetNsList)
+			{
+				namespace -set $set;
+				string $dags[] = `namespaceInfo -listOnlyDependencyNodes`;
+				string $topNode = `rootOf ($dags[0])`;
+				$topNode = `substituteAllString $topNode "|" ""`;
+				$bgSetList[size($bgSetList)] = $topNode;
+				namespace -set ":";
+			}		
+			string $setFileName = $releasePath + "/" + $fileNameBase + "_set_" + $releaseVersionString + ".ma";
+			select $bgSetList;
+			string $result = `file -force -options "v=0" -type "mayaAscii" -preserveReferences -exportSelected $setFileName`;
+			if (!`size($result)`)
+			{
+				confirmDialog -message "배경 데이터를 릴리즈 하지 못했습니다!";
+				return $return;
+			}
+			else
+			{
+				$return[1] = $result;
+				return $return;
+			}
+			print "b2ReleaseBG..........................................................................................................procedure end\n";
+		}
+		else
+		{
+			$return[0] = "0";
+			print "b2ReleaseBG..........................................................................................................procedure end\n";
+			return $return;
+		}
+	}
+	//-/
+
+
+	//- b2GetAssetRoot - 선택한 노드가 포함된 어셋 레퍼런스 계층의 최상위 노드를 반환
+	global proc string b2GetAssetRoot( string $node )
+	{
+		print "b2GetAssetRoot.........................................................................................................procedure start\n";
+		string $currentNs = `b2GetTopNamespace $node`;
+		string $rootNode = `rootOf $node`;
+		string $rootNodeNs = `b2GetTopNamespace $rootNode`;
+		string $buffer = $node;
+		string $parent[] = `listRelatives -parent $buffer`;
+		if ($currentNs != $rootNodeNs)
+		{
+			while (`b2GetTopNamespace $parent[0]` == $currentNs)
+			{
+				$buffer = $parent[0];						
+				clear $parent;
+				string $tmp[] = `listRelatives -parent -fullPath $buffer`;
+				$parent = `listRelatives -parent -fullPath $buffer`;
+			}
+			print "b2GetAssetRoot.........................................................................................................procedure end\n";
+			return $buffer;
+		}
+		else
+		{
+			print "b2GetAssetRoot.........................................................................................................procedure end\n";
+			return $rootNode;
+		}
+	}
+
+	//-/
+
+
+	//- b2GetTopNamespace - 선택한 노드의 최 상위 네임스페이스를 반환
+	global proc string b2GetTopNamespace( string $node )
+	{
+		print "b2GetTopNamespace......................................................................................................procedure start\n";
+		string $return;
+		string $stringArray[] = `stringToStringArray $node ":"`;
+		if (size($stringArray) > 1)
+		{
+			$return = $stringArray[0];
+		}
+		else
+		{
+			print "b2GetTopNamespace......................................................................................................procedure end\n";
+			return "";
+		}
+		print "b2GetTopNamespace......................................................................................................procedure end\n";
+		return $return;
+	}
+
+	//-/
+
+
+	//- b2BakeAssetTranform
+	// 기능		- 선택한 어셋이 외부로 constraint 되거나 다른 그룹에 parent된 경우 해당 채널을 베이크하고 연결을 끊어줌
+	// 작동절차	- 
+	//
+	global proc int b2BakeAssetTransform( string $assetRoot )
+	{
+		print "b2BakeAssetTransform...................................................................................................procedure start\n";
+		string $parent[] = `listRelatives -parent $assetRoot`;//어셋이 어딘가에 parent 되어 있는지?
+		string $namespace = `b2GetTopNamespace $assetRoot`;
+		string $nsMatch;
+		string $animCurves[] = `listConnections -type "animCurve" $assetRoot`;//어셋의 루트가 애니메이션 되어 있는지?
+		int $stFrame = `playbackOptions -q -min`;
+		int $endFrame = `playbackOptions -q -max`;
+			
+		if (size($parent))
+		{
+		//- 어셋이 어딘가에 parent 된 경우 처리
+			// 임시 로케이터 생성
+			string $locShape = `createNode "locator"`;
+			string $locTransform[] = `listRelatives -parent $locShape`;
+			string $tmpLoc = $locTransform[0];
+			string $tmpNameString = ($assetRoot + "_tmpLoc"); // 로케이터의 이름을 어셋 이름과 맞춤
+			rename $locShape ($tmpNameString + "Shape");	
+			$tmpLoc = `rename $tmpLoc ($tmpNameString)`;	
+			parent $tmpLoc $parent[0]; // 로케이터를 어셋의 부모 밑에 parenting
+			float $pvValue[] = `xform -q -piv $assetRoot`; //피봇값 확인
+			xform -piv $pvValue[0] $pvValue[1] $pvValue[2] $tmpLoc;//임시 로케이터에 값 적용
+			//컨스트레인을 이용해 어셋의 위치에 로케이터 보내고 컨스트레인 삭제
+			string $pConTmpLoc[] = `pointConstraint $assetRoot $tmpLoc`;
+			string $orConTmpLoc[] = `orientConstraint $assetRoot $tmpLoc`;
+			string $scConTmpLoc[] = `scaleConstraint $assetRoot $tmpLoc`;
+			delete $pConTmpLoc[0];
+			delete $orConTmpLoc[0];
+			delete $scConTmpLoc[0];
+
+			//어셋 루트에 애니메이션 이 있다면 애니메이션 커브를 임시 로케이터로 옮겨 연결
+			if (size($animCurves)) 
+			{
+				for ($anim in $animCurves)
+				{
+					string $buffer[] = `stringToStringArray $anim "_"`;
+					string $channelName = $buffer[size($buffer) - 1];
+					string $sourceChannel = $anim + ".output";
+					string $destinationChannel = $tmpLoc + "." + $channelName;
+					string $origChannel = ($assetRoot + "." + $channelName);
+					connectAttr $sourceChannel $destinationChannel;
+					disconnectAttr $sourceChannel $origChannel;
+				}
+			}
+			//어셋을 월드 루트로 빼내고 로케이터와 컨스트레인으로 연결
+			parent -world $assetRoot;
+			pointConstraint $tmpLoc $assetRoot;
+			orientConstraint $tmpLoc $assetRoot;
+			scaleConstraint $tmpLoc $assetRoot;
+		//-/
+		}
+		
+		//-계층구조 중 외부로 constraint 된 노드를 골라 베이크 리스트에 포함.
+		string $initNodes[] = `listRelatives -allDescendents $assetRoot`;
+		string $outsideNodes[]; // 어셋 계층구조에 포함된 노드 중 원래 포함되어 있지 않은 노드(아마도 컨스트레인?)
+		string $conNodes[];
+		string $bakeNodes[];
+		for ($node in $initNodes)
+		{
+			$nsMatch = `match $namespace $node`; //네임스페이스에 속해있는가 여부로 원래 어셋에 있던 노드인지를 확인
+			if (!size($nsMatch))
+			{
+				$outsideNodes[size($outsideNodes)] = $node;
+			}
+		}
+		if (size($outsideNodes)) 
+		{
+			for ($outNode in $outsideNodes)
+			{
+				print ("checking " + $outNode + "...\n");
+				string $nodeType = `nodeType $outNode`;
+				string $defConNodeList[] = { "aimConstraint", "constraint", "dynamicConstraint", "geometryConstraint", "hairConstraint", 
+					"normalConstraint", "orientConstraint", "parentConstraint", "pointConstraint", "pointOnPolyConstraint", "poleVectorConstraint",
+					"rigidConstraint", "scaleConstraint", "symmetryConstraint", "tangentConstraint" };
+				if( `stringArrayContains $nodeType $defConNodeList` )
+				{
+					$conNodes[size($conNodes)] = $outNode;
+					string $conParent[] = `listRelatives -fullPath -parent $outNode`;
+					print "$conParent =\n";
+					print $conParent;
+					print "\n";
+					$bakeNodes[size($bakeNodes)] = $conParent[0];
+				}
+			}
+			$bakeNodes = `stringArrayRemoveDuplicates $bakeNodes`;
+		}			
+		//-/
+
+		if (size($bakeNodes)) //베이크할 노드들을 순차로 베이크한 후 
+		{
+			for( $eachBake in $bakeNodes )
+			{
+				$stFrame = $stFrame - 5;
+				$endFrame = $endFrame +5;
+				bakeResults -simulation false -t ($stFrame +":" +$endFrame) -hierarchy none -sampleBy 1 
+					-disableImplicitControl true -preserveOutsideKeys true
+					-sparseAnimCurveBake false -removeBakedAttributeFromLayer false 
+					-bakeOnOverrideLayer false -controlPoints false -shape false $bakeNodes;
+			}
+				string $afterNodes[] = `listRelatives -allDescendents $assetRoot`;
+				string $deleteNodes[];
+			for ($item in $afterNodes)
+			{
+				$nsMatch = `match $namespace $item`;
+				string $deformedObj = `match "Deformed" $item`;
+				if (!`size($nsMatch)` && !`size($deformedObj)`)
+				{
+					$deleteNodes[size($deleteNodes)] = $item;
+				}
+			}
+				delete $conNodes;
+		}
+		print "b2BakeAssetTransform.....................................................................................................procedure end\n";
+		return 1;
+	}
+	
+	//-/
+
+
+	//- b2ReleaseOffline - 오프라인 파일 릴리즈 (editMA로 저장)
+	global proc string[] b2ReleaseOffline(string $listName, string $releasePath, string $fileNameBase, string $relVerStr)
+	{
+		print "b2ReleaseOffline.......................................................................................................procedure start\n";
+		string $return[];
+		$return[0] = 0;
+		string $offlineList[];
+		string $refNsList[] = `textScrollList -q -allItems $listName`;
+		string $suffix;
+		int $failCount = 0;
+		if( size($refNsList) )
+		{
+			for ($ns in $refNsList)
+			{
+				// string $singleNode[] = `ls -type transform -head 1 ($ns + ":*")`;
+				// string $assetRoot = `b2GetAssetRoot $singleNode[0]`;
+				// string $refNode = `referenceQuery -referenceNode $singleNode[0]`;
+				
+				string $rootNode = $ns + ":root";
+				
+				// 어셋 타입 확인을 위해 파일명 확인
+				string $refNode = `referenceQuery -rfn $rootNode`;
+				string $refFile = `referenceQuery -withoutCopyNumber -filename $rootNode`;
+				string $basename = `basenameEx $refFile`;
+				string $buffer[] = stringToStringArray( $basename, "_" );
+				string $astName = $buffer[0] + "_" + $ns;
+				$suffix = `substituteAllString $ns "_" "-"`;
+				string $fileName = $releasePath + "/" + $fileNameBase + "_" + $astName + "_" + $relVerStr + ".editMA";
+				int $result = `b2BakeAssetTransform $rootNode`;
+				print ("result of b2BakeAssetTransform is " + $result + "\n");
+				if ($result == 1)
+				{
+					string $exportResult = `exportEdits 
+						-force -onReferenceNode $refNode 
+						-includeAnimation -includeNetwork -includeShaders -includeDeformers -type "editMA" -includeSetAttrs true
+						$fileName`;
+					$exportResult = basename ($exportResult, "");
+					$offlineList[size($offlineList)] = $astName;
+					$offlineList[size($offlineList)] = $exportResult;
+					$offlineList[size($offlineList)] = $refFile;
+				}
+				else
+				{
+					$failCount ++;
+				}
+			}
+			appendStringArray ($return, $offlineList, `size($offlineList)`);
+			if ($failCount == 0)
+			{
+				$return[0] = 1;
+			}
+			else
+			{
+				$return[0] = 0;
+			}
+		}
+		else
+		{
+			$return[0] = 1;
+		}
+		return $return;
+		print "b2ReleaseOffline.........................................................................................................procedure end\n";
+	}
+	//-/
+
+
+	//- b2ReleaseCache - 지오메트리 캐쉬 릴리즈
+	global proc string[] b2ReleaseCache(string $releasePath, string $fileNameBase, string $relVerStr, int $start, int $end)
+	{
+		print "b2ReleaseCache.........................................................................................................procedure start\n";
+		string $return[];
+		$return[0] = 0;
+		string $cachingNsList[] = `textScrollList -q -allItems cachingAssetListSel`;
+		print "$cachingNsList =\n";
+		print $cachingNsList;
+		print "\n";
+		int $failCount = 0;
+		for ($ns in $cachingNsList)
+		{
+			print ("Exporting Geocache for " + $ns + "\n");
+			string $shapeList[] = `sets -q ($ns + ":cache_set")`;
+			
+			//어셋 타입을 알기 위해 파일명 확인.
+			string $refFile = `referenceQuery -filename -wcn ( $ns + ":cache_set" )`; 
+				$refFile = `basenameEx $refFile`;
+			print ("$refFile = " + $refFile + "\n");
+			string $buffer[] = stringToStringArray( $refFile, "_" );
+			string $assetName = $buffer[0] + "_" + $ns;
+			print ("$assetName = " + $assetName + "\n" );
+			
+			//캐쉬 익스포트
+			string $targetDir = ($releasePath + "/cache/" + $assetName);		
+			string $bakeResult = `b2Cachebaker $assetName $targetDir $start $end $shapeList`;
+			if ($bakeResult != 1)
+			{
+				$failCount ++;
+				print ("Exporting GeoCache for " + $assetName + " is failed!\n");
+			}
+			else
+			{
+				// Main 컨트롤러에 _exAttr로 끝나는 어트리뷰트가 있다면 해당 어트리뷰트의 값을 결과값에 포함
+				string $attrList[] = `listAttr( $ns + ":Main" )`;
+				string $extInfo;
+				for( $attr in $attrList )
+				{
+					string $match = `match "_exAttr$" $attr`;
+					if ( size($match) ) 
+					{
+						print ( $assetName + " has extra attributes\n");
+						string $attrObj = $ns + ":Main";
+						string $attrVal = `getAttr( $attrObj + "." + $attr )`;
+						string $setAttrCmd = "setAttr " + $attrObj + "." + $attr + " " + $attrVal; 
+						$extInfo += ("*" + $setAttrCmd);
+					}
+				}
+				$return[size($return)] = $assetName + $extInfo;
+				print ("Exporting Geocache for " + $assetName + " is succeeded!\n");
+			}
+		}
+		if ($failCount != 0)
+		{
+			$return[0] = 0;
+		}
+		else
+		{
+			$return[0] = 1;
+		}
+		return $return;
+		print "b2ReleaseCache...........................................................................................................procedure end\n";
+	}
+
+	//-/
+
+
+	//- b2releaseAbc
+	global proc string[] b2releaseAbc( string $uiName, string $relPath, string $fileNameBase, string $relVerStr, int $start, int $end)
+	{
+		print "b2releaseAbc...........................................................................................................procedure start\n";
+		string $return[];
+		$return[0] = 0;
+		
+		//UI에서 익스포트할 어셋 네임스페이스 확인
+		string $cachingNsLst[] = `textScrollList -q -allItems $uiName`;
+		
+		int $failCount;
+		
+		//알렘빅 익스포트
+		if( size($cachingNsLst) )
+		{
+//-
+/* 사용 안함( 한 번에 여러개를 한꺼번에 굽도록 변경.
+
+			for( $ns in $cachingNsLst )
+			{
+				string $root = $ns + ":lod03_GRP"; //익스포트할 lod03그룹 이름
+				int $holdKeyResult;
+
+				string $control = $ns + ":Main";
+
+				if( !`objExists $control` )
+				{
+					$control = $ns + ":lod03_GRP";
+				}
+					$holdKeyResult = `b2InsertHoldKey $control $start $end`;
+				print "$holdKeyResult =\n";
+				print $holdKeyResult;
+				print "\n";
+				
+			if( $holdKeyResult == 1)
+				{
+					//lod03_GRP 바로 상위 transform node의 inherits transform을 off로 설정.
+					if( `objExists ($ns + ":Main")` )
+					{
+						setAttr ( $ns + ":geometry.inheritsTransform" ) 0;
+					}
+					
+					//레퍼런스 파일명에서 어셋 타입을 확인하여 캐쉬 디렉토리와 파일명을 설정
+					string $refFile = `referenceQuery -filename -wcn ($ns + ":root")`;
+						$refFile = `basenameEx $refFile`;
+					string $buffer[] = stringToStringArray( $refFile, "_" );
+					string $astType = $buffer[0];
+					string $basename = $astType + "_" + $ns;
+					string $targetPath = $relPath + "/cache/" + $basename;
+					
+					//디렉토리가 없다면 생성
+					// if( !`filetest -d $targetPath` )
+					// {
+						// sysFile -makeDir $targetPath;
+					// }
+					
+					//알렘빅 익스포트 명령어 구성 및 실행
+					string $filename = $relPath + "/" + $fileNameBase + "_" + $basename + "_" + $relVerStr + ".abc";//캐쉬파일 full path
+					string $bakeParameter = "-frameRange " + $start + " " + $end + " -sl -wv -ws -nn -sn -attrPrefix ex_ -root " + $root + " -file " + $filename;
+					string $bakeCmd = "AbcExport -j \"" + $bakeParameter + "\"";
+					print "$bakeCmd =\n";
+					print $bakeCmd;
+					print "\n";
+					select -hi $root;
+					eval $bakeCmd;
+					int $resultCheck = `filetest -f $filename`;
+					if( !$resultCheck )
+					{
+						$failCount ++;
+						print ("Exporting alembic cache for " + $basename + " is failed!\n");				
+					}
+					else
+					{	
+						//-
+						//Main 컨트롤러에 _exAttr로 끝나는 어트리뷰트가 있다면 해당 어트리뷰트의 값을 결과값에 포함
+						// string $attrList[] = `listAttr( $control )`;
+						// string $extInfo;
+						// for( $attr in $attrList )
+						// {
+							// string $match = `match "_exAttr$" $attr`;
+							// if ( size($match) ) 
+							// {
+								// print ( $basename + " has extra attributes\n");
+								// string $attrObj = $control;
+								// string $attrVal = `getAttr( $attrObj + "." + $attr )`;
+								// string $setAttrCmd = "setAttr " + $attrObj + "." + $attr + " " + $attrVal; 
+								// $extInfo += ("*" + $setAttrCmd);
+							// }
+						// }
+						// $return[size($return)] = $basename + $extInfo;
+						// $return[size($return)] = $basename;
+						// print ("Exporting Geocache for " + $basename + " is succeeded!\n");
+						//-/
+					}
+				}
+				if( $failCount != 0 )
+				{
+					$return[0] = 0;
+				}
+				else
+				{
+					$return[0] = 1;
+				}
+				
+			}
+*/
+//-/
+
+			//export command 설정.
+			string $exportNameLst[];
+			$relPath = `b2AddSlash $relPath`;
+			string $prefix = $relPath + $fileNameBase;
+			string $suffix = $relVerStr + ".abc";
+			string $cmd; // 각 어셋별로 AlembicExport의 -j 옵션 이후에 올 명령어
+			string $checkFile[]; //릴리즈 한 abc 파일을 확인하기 위한 목록
+
+			
+			for( $eachNs in $cachingNsLst )
+			{
+				string $root = $eachNs + ":lod03_GRP"; //익스포트할 lod03그룹 이름			
+				string $refFile = `referenceQuery -filename -wcn ($eachNs + ":root")`;
+				$refFile = `basenameEx $refFile`;
+				string $buffer[] = stringToStringArray( $refFile, "_" );
+				string $astType = $buffer[0];
+				string $astName = $astType + "_" + $eachNs;
+				string $filename = $prefix + "_" + $astName + "_" + $suffix;//캐쉬파일 full path
+				$checkFile[size($checkFile)] = $filename;
+				string $bakeParameter = "-frameRange " + $start + " " + $end + " -wv -ws -nn -sn -attrPrefix ex_ -root " + $root + " -file " + $filename;
+				$cmd += " -j \"" + $bakeParameter + "\"";
+			}
+			$cmd = "AbcExport" + $cmd;
+			print "$cmd =\n";
+			print $cmd;
+			print "\n";
+			eval $cmd;
+			for( $eachAbc in $checkFile )
+			{
+				int $check = `filetest -f $eachAbc`;
+				if( !$check )
+				{
+					$failCount ++;
+					print ("Exporting alembic cache for " + $eachAbc + " is failed!\n");
+				}
+			}
+			if( $failCount != 0 )
+			{
+				$return[0] = 0;
+			}
+			else
+			{
+				$return[0] = 1;
+			}
+		}
+		else
+		{
+			$return[0] = 1;
+		}
+
+		print "b2releaseAbc.............................................................................................................procedure end\n";
+		return $return;
+	}
+	
+	//-/
+	
+	
+	//- b2CreateReleaseInfo - 릴리즈 파일 정보 생성
+	//$basicInfo
+	//			0 - userName
+	//			1 - event
+	//			2 - release Version int
+	//			3 - develop Version int(released from)
+	//			4 - comment
+	//$shotInfo
+	//			0 - shtName
+	//			1 - imgWidth
+	//			2 - imgHeight
+	//			3 - stFrame
+	//			4 - edFrame
+	//			5 - fps
+	//			6 - pxRatio
+	global proc int b2CreateReleaseInfo( string $releasePath, string $fileNameBase, string $basicInfo[], string $shotInfo[], string $camList[], string $charList[], string $propList[], string $setList[], string $extraInfo[])
+	{
+		print "b2CreateReleaseInfo....................................................................................................procedure start\n";
+		string $selected[] = `b2GetCurrentlySelectedItem 3 4`;
+		string $selBuffer[] = `stringToStringArray $selected[3] "-"`;
+		$selected[3] = $selBuffer[1];
+		string $relVerStr = b2Pad( $basicInfo[2], 3 );
+		// string $filePath = `b2GetFileName2 $selected[0] $selected[1] $selected[2] $selected[3] 0 "historyFile" 0`;
+		string $filePath = ($releasePath + "/" + $fileNameBase + "_r" + $relVerStr + "_info.xml");
+
+		int $exists = `filetest -e $filePath`;
+		int $fileId = `fopen $filePath "a"`;
+		string $dateTime[] = `b2GetDateTime`;
+		string $extraInfo[];
+		fprint $fileId "	<basicInfo>\n";
+		fprint $fileId ("		<artist>" + $basicInfo[0] + "</artist>\n");
+		fprint $fileId ("		<date>" + $dateTime[0] + "</date>\n");
+		fprint $fileId ("		<time>" + $dateTime[1] + "</time>\n");			
+		fprint $fileId ("		<event>" + $basicInfo[1] + "</event>\n");
+		fprint $fileId ("		<version>" + $basicInfo[2] + "</version>\n");
+		fprint $fileId ("		<releasedFrom>" + $basicInfo[3] + "</releasedFrom>\n");
+		fprint $fileId ("		<comment>" + $basicInfo[3] + "</comment>\n");
+		fprint $fileId "	</basicInfo>\n";
+		fprint $fileId "	<shotDefInfo>\n";
+		fprint $fileId ("		<shtName>" + $shotInfo[0] + "</shtName>\n");
+		fprint $fileId ("		<imgWidth>" + $shotInfo[1] + "</imgWidth>\n");
+		fprint $fileId ("		<imgHeight>" + $shotInfo[2] + "</imgHeight>\n");
+		fprint $fileId ("		<stFrame>" + $shotInfo[3] + "</stFrame>\n");
+		fprint $fileId ("		<edFrame>" + $shotInfo[4] + "</edFrame>\n");
+		fprint $fileId ("		<fps>" + $shotInfo[5] + "</fps>\n");
+		fprint $fileId ("		<pxRatio>" + $shotInfo[6] + "</pxRatio>\n");
+		fprint $fileId "	</shotDefInfo>\n";
+		fprint $fileId "	<fileInfo>\n";
+		fprint $fileId "		<cameraList>\n";
+		int $i = 0;
+		for ($cam in $camList)
+		{
+		fprint $fileId ("			<camera" + $i + ">" + $cam + "</camera" + $i + ">\n");
+		$i++;
+		}
+		$i = 0;
+		fprint $fileId "		</cameraList>\n";
+		fprint $fileId "		<characterList>\n";
+		for ($char in $charList)
+		{
+		fprint $fileId ("			<character" + $i + ">" + $char + "</character" + $i + ">\n");
+		$i++;
+		}
+		$i = 0;
+		fprint $fileId "		</characterList>\n";
+		fprint $fileId "		<propList>\n";
+		int $propListSize = size($propList);
+		int $i = 0;	
+		for ( $prop in $propList)
+		{
+		fprint $fileId ("			<prop" + $i + ">" + $prop + "</prop" + $i + ">\n");
+		$i++;
+		}
+		$i = 0;
+		fprint $fileId "		</offlineList>\n";
+		fprint $fileId "		<extraInfo>\n";
+		for ($ext in $extraInfo)
+		{
+		fprint $fileId ("			<extraInfo" + $i + ">" + $ext + "</extraInfo" + $i + ">\n");
+		$i++;
+		}
+		fprint $fileId "		</extraInfo>\n";
+		fprint $fileId "	</fileInfo>\n";
+		fclose $fileId;
+
+		print "b2CreateReleaseInfo......................................................................................................procedure end\n";
+		return 1;
+	}
+	//-/
+
+
+	//- b2BuildReleasedScene
+	// 기능		- info.xml 파일의 내용을 이용해 라이팅 팀으로 전달할 마야 파일 생성
+	// 작동절차	-
+	//
+	//
+	global proc b2BuildReleasedScene( string $path )
+	{
+		print "b2BuildReleasedScene...................................................................................................procedure start\n";
+		$path = `b2AddSlash $path`;
+		string $infoFileList[] = `getFileList -folder $path -filespec "*.xml"`;
+		string $infoFile = $path + $infoFileList[0];
+		print ("$infoFile = " + $infoFile + "\n");
+		//<basicInfo> 항목에서 버전 정보 추출
+		string $basicInfo[] = `b2ReadAllNotes "basicInfo" $infoFile`;
+		string $verStrNum[] = `b2ExtractTaggedItems "version" "" $basicInfo[0]`;
+		string $verStr = "r" + `b2Pad $verStrNum[0] 3`;
+		//<shotDefInfo> 항목에서 씬 셋업 정보 추출
+		string $shtDefInfo[] = `b2GetShotDefInfo $infoFile`;
+		string $fileNameBase = $shtDefInfo[0];	
+		
+		//- 캐싱된 어셋 처리
+		//<fileInfo> 항목에서 캐시 오브젝트 목록 추출
+		string $cacheInfoLine[] = `b2ReadAllNotes "cacheList" $infoFile`;
+		string $cAssetList[] = `b2ExtractTaggedItems "cache" "seq" $cacheInfoLine[0]`;
+		
+		if( size($cAssetList) )
+		{
+			//<extraInfo#> 항목에서 기타 어트리뷰트 값 추출
+			string $extraInfoLine[] = `b2ReadAllNotes "extraInfo" $infoFile`;
+			string $extraInfoList[] = `b2ExtractTaggedItems "extraInfo" "seq" $extraInfoLine[0]`;
+			
+			// 마야파일 생성
+			for( $ast in $cAssetList )
+			{
+				string $buffer[] = `stringToStringArray $ast "_"`;
+				string $astType = $buffer[0];
+				string $astName = $buffer[1];
+				string $astNum = $buffer[2];
+				string $ns = $astName + "_" + $astNum;
+				string $astFilePath = `b2GetFileName 2 $astType $astName "mdl" 0 "release" 0`;
+				string $abcPath = $path + "cache/" + $ast + "/" + $ast + ".abc";
+				string $cacheXmlPath = $path + "cache/" + $ast + "/" + $ast + ".xml";
+				string $outFileName = $path + $fileNameBase + "_" + $ast + "_" + $verStr + ".ma";				
+				
+				// 새 씬 셋업
+				file -force -new;
+				currentUnit -time $shtDefInfo[5];
+				setAttr defaultResolution.width (int($shtDefInfo[1]));
+				setAttr defaultResolution.height (int($shtDefInfo[2]));
+				setAttr defaultRenderGlobals.animation 1;
+				setAttr defaultRenderGlobals.startFrame $shtDefInfo[3];
+				setAttr defaultRenderGlobals.endFrame $shtDefInfo[4];
+				playbackOptions -min $shtDefInfo[3];
+				playbackOptions -max $shtDefInfo[4];
+				
+/* 				// 어셋 임포트
+				file -prompt false -import -type "mayaAscii" -renameAll true -namespace $ns -options "v=0" -loadReferenceDepth "all" $astFilePath;
+				// extraInfo와 매치되는 네임스페이스라면 실행
+				for( $eachInfo in $extraInfoList )
+				{
+					string $matchWord = $ns + ":";
+					string $match = `match $matchWord $eachInfo`;
+					if( size($match) )
+					{
+						eval $eachInfo;
+					}
+				}
+				
+				//캐쉬 적용
+				string $cacheSet[] = `sets -q ($ns + ":cache_set")`;
+				doImportCacheFile( $cacheXmlPath, "xml", $cacheSet, {} );
+				namespace -force -mv $ns ":";
+				file -rename $outFileName;
+				file -type "mayaAscii";
+				file -force -type "mayaAscii" -save;
+				file -force -new; 
+*/
+				
+				// 어셋 임포트
+				file -prompt false -reference -type "mayaAscii" -groupLocator -namespace $ns -options "v=0" -loadReferenceDepth "all" $astFilePath;
+				
+				// extraInfo와 매치되는 네임스페이스라면 실행
+				for( $eachInfo in $extraInfoList )
+				{
+					string $matchWord = $ns + ":";
+					string $match = `match $matchWord $eachInfo`;
+					if( size($match) )
+					{
+						eval $eachInfo;
+					}
+				}
+
+				//캐쉬 적용
+				string $abcRoot = $ns + ":lod03_GRP";
+				string $abcImportCmd = "AbcImport -m import -ct " + "\"" + $abcRoot + "\" \"" + $abcPath + "\"" ;
+				print "$abcImportCmd =\n";
+				print $abcImportCmd;
+				print "\n";
+				eval $abcImportCmd;
+				file -rename $outFileName;
+				file -type "mayaAscii";
+				file -force -type "mayaAscii" -save;
+				file -force -new;
+			}
+		}
+		//-/
+		
+		//- editMA 어셋 처리
+		// <offlineList>항목에서 editMA 정보 추출
+		string $offlineInfoLine[] = `b2ReadAllNotes "offlineList" $infoFile`;
+		string $offlineList[] = `b2ExtractTaggedItems "offline" "seq" $offlineInfoLine[0]`;				
+		string $offlineEditList[] = `b2ExtractTaggedItems "offlineEdit" "seq" $offlineInfoLine[0]`;
+		string $offlineAssetList[] = `b2ExtractTaggedItems "offlineAsset" "seq" $offlineInfoLine[0]`;
+		int $offlineSize = size($offlineList);
+		
+		if( $offlineSize ) //editMA 파일이 있다면
+		{
+			for( $i = 0; $i < $offlineSize; $i ++ )
+			{
+				//어셋 파일명에서 네임스페이스 생성
+				string $buffer[] = `stringToStringArray $offlineList[$i] "_"`;
+				string $astType = $buffer[0];
+				string $astName = $buffer[1];
+				string $astNum = $buffer[2];
+				string $ns = $astName + "_" + $astNum;
+				string $outFileName = $path + $fileNameBase + "_" + $offlineList[$i] + "_" + $verStr + ".ma";
+				
+				//새 씬 셋업
+				file -force -new;
+				currentUnit -time $shtDefInfo[5];
+				setAttr defaultResolution.width (int($shtDefInfo[1]));
+				setAttr defaultResolution.height (int($shtDefInfo[2]));
+				setAttr defaultRenderGlobals.animation 1;
+				setAttr defaultRenderGlobals.startFrame $shtDefInfo[3];
+				setAttr defaultRenderGlobals.endFrame $shtDefInfo[4];
+				playbackOptions -min $shtDefInfo[3];
+				playbackOptions -max $shtDefInfo[4];
+				
+				//어셋 임포트
+				file -prompt false -reference -type "mayaAscii" -groupLocator -namespace $ns -options "v=0" -loadReferenceDepth "all" $offlineAssetList[$i];
+				string $refNode = `referenceQuery -rfn $offlineAssetList[$i]`;
+				
+				//editMA 적용
+				string $editMA = $path + $offlineEditList[$i];
+				file -import -type "editMA" -namespace "edit" -applyTo $refNode $editMA;
+				file -importReference $offlineAssetList[$i];
+				namespace -force -mv $ns ":";
+				namespace -rm $ns;
+				namespace -force -mv ("edit:" + $ns) ":";
+				namespace -rm ("edit:" + $ns);
+				namespace -rm "edit";
+				file -rename $outFileName;
+				file -type "mayaAscii";
+				file -force -save;
+				file -force -new;
+			}
+		}
+		
+		//-/
+		print "b2BuildReleasedScene.....................................................................................................procedure end\n";
+		
+	}
+
+	//-/
+
+
+	//- b2DoGetReleasedAni //----------------------------------------------------------------------------------------------------------------------//
+
+	/* 
+		기능		- b2GetReleasedAniUI에 표시된 애니메이션 릴리즈 파일을 현재 씬으로 레퍼런싱 하여 불러들임
+		작동절차	- 각 요소의 타입에 따라 현재 씬에 이미 존재하는지 확인.
+					- 신규 요소는 해당 타입 그룹과 네임스페이스를 만들어 다음 절차 실행.
+					- .ma라면 바로 레퍼런싱
+					- .abc라면 해당 어셋을 레퍼런싱 한 후 AbcImport 실행
+					- info.xml 파일에 해당 어셋에 대한 extraInfo가 있다면 적용
+					- .editMA라면 해당 어셋을 레퍼런싱 한 후 editMA 적용
+					- 이미 씬에 존재하는 중복 요소는 replace reference.
+	*/
+	
+	global proc b2DoGetReleasedAni()
+	{
+		print "b2DoGetReleaseAni..................................................................................................procedure start\n";
+		editRenderLayerGlobals -currentRenderLayer "defaultRenderLayer";
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		string $relDirPath = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "release" 0`;
+			$relDirPath = `dirname $relDirPath`;
+			$relDirPath = `b2AddSlash $relDirPath`;
+		string $fileLst[] = `textScrollList -q -allItems fileList`; //UI에서 파일목록 받아옴.
+		
+		print "$fileLst =\n";
+		print $fileLst;
+		print "\n";
+
+		for( $eachFile in $fileLst )
+		{
+			print ( "Handling released animation file " + $eachFile + " ......\n" );
+			string $buffer[] = `stringToStringArray $eachFile "_"`;
+			string $verDir = $buffer[size($buffer) - 1];//파일명에서 릴리즈 번호 확인
+				$verDir = `basenameEx $verDir`;
+					
+			string $relFileName = $relDirPath + $verDir + "/" + $eachFile;	//릴리즈 번호를 이용해 해당 릴리즈의 최종 경로 생성	
+			string $astFileName;
+			string $editMAName;
+			string $grpName;
+			string $namespace;
+			string $rootNode;
+			string $refNode;
+			
+			//확장자 확인 후 레퍼런싱 할 어셋 경로 설정
+			string $ext = `match ".[a-zA-Z]*$" $eachFile`;
+			if( $ext == ".ma") // 마야 파일이라면 릴리즈 파일 자체가 어셋(카메라 등등...)
+			{
+				$astFileName = $relFileName;
+			}
+			else if( $ext == ".abc" ) //알렘빅이라면 가장 최신 어셋으로 설정.
+			{
+				$astFileName = `b2GetFileName 2 $buffer[4] $buffer[5] "mdl" 0 "release" 0`;
+			}
+			else if( $ext == ".editMA" ) //.ediaMA라면 가장 최신 어셋으로 설정.
+			{
+				$astFileName = `b2GetFileName 2 $buffer[4] $buffer[5] "mdl" 0 "release" 0`;
+			}
+			
+			//파일명에서 그룹명과 네임스페이스를 결정
+			if( $buffer[4] == "cam" )
+			{
+				$namespace = $buffer[4] + "_" + $buffer[5];
+				$grpName = "|cam";
+			}
+			else 
+			{
+				$namespace = $buffer[5] + "_" + $buffer[6];
+				$grpName = "|" + $buffer[4];
+			}
+			int $grpExist = `objExists $grpName`;
+			if( !$grpExist )
+			{
+				group -em -n $grpName;
+			}
+			string $refNodeAst = $namespace + "RN";
+			string $refNodeEdit = $namespace + "EditRN";
+			string $abcImportCmd = "AbcImport -mode import \"" + $relFileName + "\"" ;
+			string $abcNode;
+			string $abcNs = $namespace + "_abc";
+			string $abcRoot = $abcNs + ":lod03_GRP";
+			string $refEditNamespace = $namespace + "Edit"; //.editMA의 내용이 포함될 네임스페이스
+			string $nsLst[] = `namespaceInfo -listOnlyNamespaces`;
+			// string $nsLst[] = { $namespace };
+			// string $conflictingNs[];
+			string $conflictingNs;
+			print "$nsLst =\n";
+			print $nsLst;
+			print "\n";
+			
+			//씬에 해당 네임스페이스가 존재하는지 확인하여 중복 네임스페이스를 따로 분류
+			for( $eachNs in $nsLst )
+			{
+				string $matchString;
+				string $match = `match ( $namespace + "$" ) $eachNs`;
+				if( $match != "" )
+				{
+					// $conflictingNs[size($conflictingNs)] = $eachNs;
+					$conflictingNs = $eachNs;
+				}
+			}
+			
+			print "$conflictingNs =\n";
+			print $conflictingNs;
+			print "\n";
+			
+			//어셋 레퍼런싱
+			// if( !`size($conflictingNs)` )//씬에 없는 어셋인 경우
+			if( $conflictingNs == "" )
+			{
+				print ( "Creating referenced asset " + $astFileName + " ......\n" );
+				file -prompt false -r -type "mayaAscii" -gl -loadReferenceDepth "all" -namespace $namespace -options "v=0" $astFileName;			
+
+				//알렘빅 캐쉬 처리
+				if( $ext == ".abc" )
+				{
+					print( $eachFile + " is alembic file\n" );
+					// 알렘빅 캐쉬용 네임스페이스를 설정하여 모든 오브젝트를 포함시키고 alembic 그룹에 parent.
+					// 대응되는 어셋에 b2AttachAbcToModel을 이용하여 연결.
+					if( !`namespace -exists $abcNs` )
+					{
+						namespace -addNamespace $abcNs;
+					}
+					$abcNode = `eval $abcImportCmd`;
+					print "$abcImportCmd = \n";
+					print $abcImportCmd;
+					print "\n";
+					
+					if( $abcNode != "" )
+					{
+						$abcNode = `rename $abcNode ($abcNs + ":" + $abcNode)`;
+					}
+					
+					string $abcRoot[] = { "|lod03_GRP" };
+					//-
+					// if( $abcNode != "" )
+					// {
+						// $abcNode = `rename $abcNode ($abcNs + ":" + $abcNode)`;
+
+						// print "$abcNode =\n";
+						// print $abcNode;
+						// print "\n";
+						
+						// string $abcMeshLst[] = `listConnections -s false -d true -type "mesh" $abcNode`;
+						// string $abcTransformLst[] = `listConnections -s false -d true -type "transform" $abcNode`;
+						// string $tempLst[] = `stringArrayCatenate $abcMeshLst $abcTransformLst`;
+							// $abcRoot[0] = `rootOf $tempLst[0]`;
+					// }
+					// else
+					// {
+						// $abcRoot[0] = "|lod03_GRP";
+					// }
+					//-/
+					
+					print "$abcRoot =\n";
+					print $abcRoot;
+					print "\n";
+					
+					if( !`objExists "|alembic"` )
+					{
+						group -empty -world -name "alembic";
+					}
+					parent $abcRoot[0] "|alembic";
+						$abcRoot[0] = ( "|alembic" + $abcRoot[0] );
+					print "$abcRoot[0] =\n";
+					print $abcRoot[0];
+					print "\n";
+					string $abcObjLst[] = `listRelatives -allDescendents -fullPath -type "transform" $abcRoot[0]`;
+						$abcObjLst = `stringArrayCatenate $abcObjLst $abcRoot`;
+					print "$abcObjLst =\n";
+					print $abcObjLst;
+					print "\n";
+					string $newRoot;
+					int $visibility = 0;
+					for( $eachObj in $abcObjLst )
+					{	
+						print "$eachObj =\n";
+						print $eachObj;
+						print "\n";
+						int $size = size($eachObj);
+						string $abcNameSplitA[] = `stringToStringArray $eachObj ":"`;
+						string $tempName;
+						if( size($abcNameSplitA) > 1 )
+						{
+							$tempName = $abcNameSplitA[size($abcNameSplitA) - 1];
+						}
+						else
+						{
+							string $abcNameSplitB[] = `stringToStringArray $eachObj "|"`;
+							$tempName = $abcNameSplitB[size($abcNameSplitB) - 1];
+						}
+						$visibility = 1;
+						string $newObjName = $abcNs + ":" + $tempName;
+						print "$newObjName =\n";
+						print $newObjName;
+						print "\n";
+						rename $eachObj $newObjName;
+						if( `match "lod03_GRP" $eachObj` != "" )
+						{
+							$newRoot = $newObjName;
+						}
+					}
+					print "$newRoot =\n";
+					print $newRoot;
+					print "\n";
+					setAttr ( $newRoot + ".visibility" ) 0;					
+
+					b2AttachAbcToModel $namespace $abcNs "lod03_GRP";
+				}
+				
+				//레퍼런스 에딧 처리
+				else if( $ext == ".editMA" )
+				{
+					file -prompt false -reference -type "editMA" -namespace $refEditNamespace -applyTo $refNodeAst $relFileName;
+				}
+				
+				//어셋을 어셋 타입별 그룹에 parent
+				if( $grpName == "|cam" ) //카메라 별도 처리
+				{
+					string $nodeLst[] = `namespaceInfo -listOnlyDependencyNodes $namespace`;
+					print "$nodeLst =====\n";
+					print $nodeLst;
+					print "\n";
+					for( $eachNode in $nodeLst )
+					{
+						string $match = `match "s[0-9]*_e[0-9]*_camG" $eachNode`;
+						if( size($match) )
+						{
+							$rootNode = $eachNode;
+							print "$rootNode =\n";
+							print $rootNode;
+							print "\n";
+						}
+					}
+				}
+				else
+				{
+					$rootNode = $namespace + ":root";
+					print "$rootNode =\n";
+					print $rootNode;
+					print "\n";
+				}
+				parent $rootNode $grpName;
+			}
+			else //이미 어셋이 씬에 존재하는 경우
+			{
+				print "Asset already exists, updating....\n";
+				// string $astRoot = $conflictingNs[0] + ":lod03_GRP";
+				string $astRoot = $conflictingNs + ":lod03_GRP";
+				print "$astRoot = \n";
+				print $astRoot;
+				print "\n";
+				if( $ext == ".ma" )
+				{
+					file -prompt false -loadReference $refNodeAst -type "mayaAscii" $astFileName;
+				}
+
+				// merge 방식의 alembic 노드가 있다면 지우고 blendShape 삽입.
+				// blendShape 방식이라면 기존 alembic 모델과 blendShapeNode를 삭제하고 새로 셋업.
+				// 레퍼런스에 연결된 blendShape을 0으로 돌린 뒤 삭제.
+				// *Deformed 라고 이름 붙은 shape을 지우고 원래 shape을 intermediate 해제.
+				// current renderlayer를 defaultRenderLayer로 바꾼 뒤 unload.
+				// 새 어셋으로 reload				
+				else if( $ext == ".abc" )
+				{
+					print "$astFileName =\n";
+					print $astFileName;
+					print "\n";
+					string $abcNodeLst[] = `ls -type "AlembicNode"`;
+					string $oldAbcNode;
+					for( $eachAbc in $abcNodeLst )
+					{
+						string $match = `match $namespace $eachAbc`;
+						if( size($match) )
+						{
+							$oldAbcNode = $eachAbc;
+							break;
+						}
+					}
+					if( `objExists $oldAbcNode` ) //알렘빅 노드 삭제.
+					{
+						delete $oldAbcNode;
+					}
+					string $oldBlendShapeNode[] = `ls -type "blendShape" ( $abcNs + "*" )`;
+					for( $i = 0; $i < size($oldBlendShapeNode); $i ++ ) //블렌드 셰입 노드 삭제
+					{
+						if( `objExists $oldBlendShapeNode[$i]` )
+						{
+							setAttr ($oldBlendShapeNode[$i] + ".lod03_GRP") 0;
+							delete $oldBlendShapeNode[$i];
+						}
+					}
+					
+					print( "Replacing old alembic node " + $oldAbcNode + " with new file " + $eachFile + "\n"  );
+					
+					
+					// 알렘빅 캐쉬용 네임스페이스를 설정하여 모든 오브젝트를 포함시키고 alembic 그룹에 parent.
+					// 대응되는 어셋에 b2AttachAbcToModel을 이용하여 연결.
+					
+					// 기존 abc 네임스페이스가 있다면 포함된 모든 노드를 삭제, 없다면 새로 네임스페이스 생성.
+					if( !`namespace -exists $abcNs` ) 
+					{
+						namespace -addNamespace $abcNs;
+					}
+					else
+					{
+						delete ( $abcNs + ":*" );
+					}
+					
+					$abcNode = `eval $abcImportCmd`; // 알렘빅 데이터를 로드
+					print ( "$abcNode = " + $abcNode + "\n" );
+					if( $abcNode != "" )
+					{
+						$abcNode = `rename $abcNode ($abcNs + ":" + $abcNode)`; //새 alembicNode를 기존 abc 네임스페이스에 추가.
+					}
+
+					
+					string $abcRoot[];					
+					
+					// if( $abcNode != "" )
+					// {
+						// $abcNode = `rename $abcNode ($abcNs + ":" + $abcNode)`; //새 alembicNode를 기존 abc 네임스페이스에 추가.
+
+						// string $abcMeshLst[] = `listConnections -s false -d true -type "mesh" $abcNode`; 
+						// string $abcTransformLst[] = `listConnections -s false -d true -type "transform" $abcNode`;
+						// string $tempLst[] = `stringArrayCatenate $abcMeshLst $abcTransformLst`;
+						// print "$tempLst =\n";
+						// print $tempLst;
+						// print "\n";
+						// string $abcRoot[];
+							// $abcRoot[0] = `rootOf $tempLst[0]`;
+					// }
+					// else
+					// {
+						// $abcRoot[0] = "|lod03_GRP";
+					// }
+					$abcRoot[0] = "|lod03_GRP";
+					print "$abcRoot =\n";
+					print $abcRoot;
+					print "\n";
+					
+					//alembic 그룹이 없다면 새로 생성
+					if( !`objExists "|alembic"` ) 
+					{
+						group -empty -world -name "alembic";
+					}
+					parent $abcRoot[0] "|alembic"; //불러들인 알렘빅 데이터를 alembic 그룹에 추가
+						$abcRoot[0] = ( "|alembic" + $abcRoot[0] ); 
+					string $abcObjLst[] = `listRelatives -allDescendents -fullPath -type "transform" $abcRoot[0]`;
+						$abcObjLst = `stringArrayCatenate $abcObjLst $abcRoot`;
+					print "$abcObjLst =\n";
+					print $abcObjLst;
+					print "\n";
+					string $newRoot;
+					int $visibility = 0;
+					
+					//알렘빅 데이터의 모든 그룹과 오브젝트를 리네임하여 abc 네임스페이스에 추가.
+					for( $eachObj in $abcObjLst ) 
+					{	
+						print "$eachObj =\n";
+						print $eachObj;
+						print "\n";
+						int $size = size($eachObj);
+						$eachObj = `substring $eachObj 2 $size `;
+						print "$eachObj after substring =\n";
+						print $eachObj;
+						print "\n";
+						
+						// 알렘빅 오브젝트가 이미 네임스페이스에 포함되어 있는지 확인하여 그렇다면 네임스페이스를 제외한 이름 추출하여
+						// abc 네임스페이스에 추가.
+						string $abcNameSplitA[] = `stringToStringArray $eachObj ":"`;
+						print "$abcNameSplitA =\n";
+						print $abcNameSplitA;
+						print "\n";
+						string $tempName;
+						if( size($abcNameSplitA) > 1 )
+						{
+							$tempName = $abcNameSplitA[size($abcNameSplitA) - 1]; //
+						}
+						else // 알렘빅 오브젝트가 네임스페이스에 들어있지 않다면 fullPath에서 마지막 이름만 추출.
+						{
+							string $abcNameSplitB[] = `stringToStringArray $eachObj "|"`;
+							$tempName = $abcNameSplitB[size($abcNameSplitB) - 1];
+						}
+						print "$tempName =\n";
+						print $tempName;
+						print "\n";
+						$visibility = 1;
+						string $newObjName = $abcNs + ":" + $tempName;
+						print "$newObjName =\n";
+						print $newObjName;
+						print "\n";
+						rename $eachObj $newObjName;
+
+						if( `match "lod03_GRP" $eachObj` != "" )
+						{
+							$newRoot = $newObjName;
+						}
+					}
+					print "$newRoot =\n";
+					print $newRoot;
+					print "\n";
+					setAttr ( $newRoot + ".visibility" ) 0;					
+					
+					if( `gmatch $abcNs "cam_*"` )
+					{
+						b2RemoveDeformedShape $astRoot; // blendshape을 제거한 오브젝트의 Deformed 셰입을 지우고 오리지널 셰입을 복구.
+					}
+					
+					print "$astRoot =\n";
+					print $astRoot;
+					print "\n";
+					string $currAstFile = `referenceQuery -filename $astRoot`;
+					if( $astFileName != $currAstFile )
+					{
+						string $message1 = "새로운 버전의 어셋이 있습니다. 업데이트 할까요?" 
+							+ "어셋의 구조가 바뀌었다면 렌더레이어 셋업 등에 문제가 생길 수 있습니다.";
+						string $updConfirm = `confirmDialog -title "New Asset Exists" -message $message1
+							    -button "Yes" -button "No" -defaultButton "No"
+								-cancelButton "No" -dismissString "No"`;
+						if( $updConfirm == "Yes" )
+						{
+							file -unloadReference $refNodeAst $currAstFile;
+							file -prompt false -loadReference $refNodeAst -type "mayaAscii" $astFileName;
+						}
+					}
+					b2AttachAbcToModel $namespace $abcNs "lod03_GRP";		
+				}
+				else if( $ext == ".editMA" )
+				{
+					file -prompt false -loadReference $refNodeEdit -type "editMA" $relFileName;				
+				}
+			}
+		}
+		deleteUI "b2SubWin1";
+		print "b2DoGetReleaseAni........................................................................................................procedure end\n";
+	}
+	//-/
+	
+	
+	//- b2RemoveDeformedShape
+	//	디포머가 적용외었던  레퍼런스 어셋에 남아있는 *Deformed 가 붙은 shape을 제거하고 원래 shape의 intermediateObject 상태를 해제.
+	//
+	global proc b2RemoveDeformedShape( string $topNode )
+	{
+		string $mesh[] = `listRelatives  -allDescendents -fullPath -type "mesh" $topNode`;
+		print $mesh;
+		for( $eachMesh in $mesh )
+		{
+			print "$eachMesh =\n";
+			print $eachMesh;
+			print "\n";
+			if( `gmatch $eachMesh "*Deformed"` )
+			{
+				print "yes\n";
+				delete $eachMesh;
+			}
+			else
+			{
+				print "no\n";
+				setAttr ( $eachMesh + ".intermediateObject" ) 0;
+			}
+		}
+	}
+
+	//-/
+	
+	
+	//- b2AttachAbcToModel //----------------------------------------------------------------------------------------------------------------------//
+	
+	/*
+		기능		- 알렘빅 캐쉬를 모델에 blendShape으로 연결하고 transform의 keyable attribute를 연결.
+					- transform node에 ex_implicit 어트리뷰트가 있다면 대응하는 어셋의 shapeNode에 outMesh - inMesh 연결.
+	*/
+	
+	global proc b2AttachAbcToModel( string $renNs, string $abcNs, string $root )
+	{
+		print "b2AttachAbcToModel.....................................................................................................procedure start\n";
+		string $ren_lod03Grp = $renNs + ":" + $root;
+		string $renObjRoot[] = { $ren_lod03Grp }; 
+		string $abc_lod03Grp = $abcNs + ":" + $root;
+		string $abcObjRoot[] = { $abc_lod03Grp };
+		string $renObjLst[] = `listRelatives -fullPath -children -allDescendents -type "transform" $ren_lod03Grp`;
+		$renObjLst = `stringArrayCatenate $renObjRoot $renObjLst`;
+		string $abcObjLst[] = `listRelatives -fullPath -children -allDescendents -type "transform" $abc_lod03Grp`;
+		$abcObjLst = `stringArrayCatenate $abcObjRoot $abcObjLst`;
+		
+		//렌더 모델 lod03_GRP 바로 상위까지의 full path 계산.
+		string $ren_lod03GrpFullPath[] = `ls -long $ren_lod03Grp`;
+		int $ren_lod03GrpFullPathLength = size( $ren_lod03GrpFullPath[0] );
+		int $ren_lod03GrpLength = size( $ren_lod03Grp );
+		int $offset = $ren_lod03GrpFullPathLength - $ren_lod03GrpLength;
+		string $renObjPrefix = `substring $ren_lod03GrpFullPath[0] 1 ( $offset - 1 )`;
+
+		string $blendShapeNodeName = $abcNs + "_blendShape";
+		
+		//blendShape 연결.
+		string $blendShapeNode[] = `blendShape -n $blendShapeNodeName  $abc_lod03Grp $ren_lod03Grp`;
+		setAttr ( $blendShapeNode[0] + "." + $root ) 1;
+		
+		//transformNode의 keyable attribute 연결
+		for( $eachObj in $abcObjLst )
+		{
+			print "$eachObj =\n";
+			print $eachObj;
+			print "\n";
+			//어트리뷰트를 연결 할 렌더모델 오브젝트 이름 추출
+			string $targetObj = `substituteAllString $eachObj $abcNs $renNs`;
+			$targetObj = `substituteAllString $targetObj "|alembic" $renObjPrefix`;
+			print "$targetObj =\n";
+			print $targetObj;
+			print "\n";
+
+			if( `stringArrayContains $targetObj $renObjLst`)
+			{
+				string $linkableAttrLst[] = `listAttr -keyable -unlocked $eachObj`;
+				if( `match "lod03_GRP$" $eachObj` != "" )
+				{
+					string $rmAttr[] = { "visibility" };
+					$linkableAttrLst = `stringArrayRemove $rmAttr $linkableAttrLst`;
+				}
+				
+				string $sourceShapeLst[] = `listRelatives -shapes -type "mesh" $eachObj`;				
+				string $targetShapeLst[] = `listRelatives -shapes -type "mesh" $targetObj`;
+				string $targetShape;
+				for( $i = 0; $i < size( $linkableAttrLst ); $i++ )
+				{
+					if( `objExists ( $targetObj + "." + $linkableAttrLst[$i] )` && `getAttr -lock ( $targetObj + "." + $linkableAttrLst[$i] )` == 0 ) //타겟 오브젝트의 채널이 잠겨있지 않다면 연결.
+					{
+						connectAttr ( $eachObj + "." + $linkableAttrLst[$i] ) ( $targetObj + "." + $linkableAttrLst[$i] );
+					}
+				}
+				if( `objExists( $eachObj + ".ex_implicit")` )
+				{
+					if( size($targetShapeLst) > 1 )
+					{
+						for( $eachShape in $targetShapeLst )
+						{
+							string $matchDeformed = `match "Deformed" $eachShape`;
+							if( size($matchDeformed) )
+							{
+								$targetShape = $eachShape;
+							}
+						}
+					}
+					else
+					{
+						$targetShape = $targetShapeLst[0];
+					}
+					
+					connectAttr -force ( $sourceShapeLst[0] + ".outMesh" ) ( $targetShape + ".inMesh" );
+				
+				}
+			}
+		}
+		print "b1AttachAbcToModel.......................................................................................................procedure end\n";
+	}
+	//-/
+	
+	
+	//- b2InsertHoldKey //-------------------------------------------------------------------------------------------------------------------------//
+	
+	/*
+		기능		- 오브젝트가 애니메이션 프레임 범위 안에서 고정되어 있다면 시작 프레임과 바로 전 프레임에 0.0001 차이의 애니메이션 키프레임을 설정
+	*/
+	
+	global proc int b2InsertHoldKey( string $obj , int $stFrame, int $edFrame)
+	{
+		print "b2InsertHoldKey........................................................................................................procedure start\n";
+		print ("checking static channels of " + $obj + "\n" );
+		int $midFrame = ($edFrame -  $stFrame) / 2 + $stFrame;
+		string $chLst[] = { "tx", "ty", "tz", "rx", "ry", "rz", "sx", "sy", "sz" };
+		float $val[];
+		float $stValSum = 0.0;
+		float $midValSum = 0.0;
+		float $edValSum = 0.0;
+		
+		for( $i = 0; $i < size($chLst); $i++ )
+		{
+			$stValSum += `getAttr -time $stFrame ( $obj + "." + $chLst[$i] )`;
+			$midValSum += `getAttr -time $midFrame ( $obj + "." + $chLst[$i] )`;
+			$edValSum += `getAttr -time $edFrame ( $obj + "." + $chLst[$i] )`;
+		}
+		
+		if( $stValSum == $midValSum && $midValSum == $edValSum  && $stValSum == $edValSum )
+		{
+			print ( $obj + " is static object. creating hold keyframes.....\n");
+			for( $eachCh in $chLst )
+			{	
+				float $stFrameVal = `getAttr -time $stFrame ( $obj + "." + $eachCh)`;
+				setKeyframe -attribute $eachCh -time ($stFrame + 3 ) -value $stFrameVal $obj;
+				setKeyframe -attribute $eachCh -time ( $stFrame + 4 ) -value ( $stFrameVal + 0.00001 ) $obj;
+			}
+		}
+		print "b2InsertHoldKey..........................................................................................................procedure end\n";
+		return 1;
+	}
+	
+	//-/
+
+	
+//-/
+
+
+//- FX dev/rel UI
+
+
+	//- b2SaveFxDevUI //---------------------------------------------------------------------------------------------------------------------------//
+	global proc b2SaveFxDevUI()
+	{
+		print "b2SaveFxDevUI..........................................................................................................procedure start\n";
+		// UI에 표시할 씬 기본정보 생성
+		string $selItem[] = `b2GetCurrentlySelectedItem 3 4`;
+		string $fileName = `b2GetFileName2 $selItem[0] $selItem[1] $selItem[2] $selItem[3] 0 "nextDevelop" 0`;
+			$fileName = `basenameEx $fileName`;
+		string $buffer[] = stringToStringArray( $fileName, "_" );		
+		string $versionStr = $buffer[size($buffer) - 2];
+		string $shtName = $buffer[0]; //샷 이름
+		for( $i = 1; $i < 4; $i ++ )
+		{
+			$shtName += "_" + $buffer[$i];
+		}
+		string $defFile = `b2GetFileName2 $selItem[0] $selItem[1] "" "" 0 "folder" 0`;// def.xml파일 경로
+			$defFile = $defFile + "/" + $selItem[1] + "_def.xml";
+		string $shtInfo[] = `b2GetShotDefInfo $defFile`; // def.xml에 기록된 셋업 정보 입수
+		string $defFps = $shtInfo[5];
+		
+		//현재 씬 셋업 정보
+		int $currXRes = `getAttr defaultResolution.width`;
+		int $currYRes = `getAttr defaultResolution.height`;
+		int $currStFrame = `playbackOptions -q -min`;
+		int $currEdFrame = `playbackOptions -q -max`;
+		string $currFps = `currentUnit -q -time`;
+		string $disMatchInfo[];
+		
+		if( $selItem[3] == "" )
+		{
+			confirmDialog -title "Error!" -message "샷 컴포넌트 레이어를 선택해주세요";
+		}
+		else
+		{
+			if( `window -exists b2SubWin1` )
+			{
+				deleteUI b2SubWin1;
+			}
+			string $tempDir = "c:/b2PipelineSnapshot/";
+			int $testValue = `filetest -d $tempDir`;
+			if( $testValue == 0 )
+			{
+				sysFile -makeDir $tempDir;
+			}
+			string $existingFiles[] = `getFileList -folder $tempDir -filespec "*.jpg"`;
+			if( size($existingFiles) != 0 )
+			{
+				for( $item in $existingFiles )
+				{
+					string $filename = $tempDir + "/" + $item;
+					sysFile -delete $filename;
+				}
+			}
+			string $window = `window -title "b2SaveShotDev" -sizeable false b2SubWin1`;
+				string $rootLayout = `columnLayout -columnWidth 610 -columnAttach "both" 5 -columnAlign "left" -rowSpacing 10`;
+					separator;
+					rowLayout -numberOfColumns 2 -columnWidth 1 275 -columnWidth 2 320;
+						columnLayout -rowSpacing 5;
+							text -label "Shot Definition Info" -font boldLabelFont;
+							rowColumnLayout -numberOfColumns 2 -rowSpacing 1 3 -columnWidth 1 90 -columnWidth 2 160 -columnAlign 1 "right" -columnAlign 2 "left";
+								separator; separator;
+								text -label "Shot Name :  ";
+								text -label $shtName -font "obliqueLabelFont" shtNameInfoTxt1;
+								separator -style "in"; separator -style "in";
+								text -label "Version :  ";
+								text -label $versionStr -font "obliqueLabelFont" versionInfoTxt1;
+								separator -style "in"; separator -style "in";
+						setParent ..;
+							rowColumnLayout -numberOfColumns 4 -rowSpacing 1 3 -columnWidth 1 90 -columnWidth 2 35 -columnWidth 3 90 -columnWidth 4 35
+								-columnAlign 1 "right" -columnAlign 2 "left" -columnAlign 3 "right" -columnAlign 4 "left";
+								text -label "Image Width :  ";
+								text -label $shtInfo[1] -font "obliqueLabelFont" resXInfoTxt1;
+								text -label "Image Height :  ";
+								text -label $shtInfo[2] -font "obliqueLabelFont" resYInfoTxt1;
+								separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+								text -label "Start Frame :  ";
+								text -label $shtInfo[3] -font "obliqueLabelFont" stFrameInfoTxt1;
+								text -label "End Frame :  ";
+								text -label $shtInfo[4] -font "obliqueLabelFont" edFrameInfoTxt1;
+								separator -style "in"; separator -style "in"; separator -style "in"; separator -style "in";
+								text -label "Frame Rate :  ";
+								text -label $defFps -font "obliqueLabelFont" fpsInfoTxt1;
+								text -label ""; text -label "";
+								separator; separator; separator; separator;
+						setParent ..;
+							text -label "Artist's Comment" -font "boldLabelFont";
+							scrollField -width 250 -height 110 -wordWrap true -text "작업 진행 내용을 구체적으로 기록해 주세요.\n대쉬문자( - )는 사용하면 안됩니다." commentField;
+					setParent ..;
+						columnLayout -rowSpacing 5;
+							frameLayout -label "Preview Image" -bgc 0 0 0 -width 320 -height 240;
+								image -width 320 -height 240 efxSnapshotImg;
+						setParent ..;
+							button -label "Take Snapshot" -width 320 -command "b2TakeSnapshotSingle efxSnapshotImg";					
+				setParent $rootLayout;
+					separator;
+					string $movSelect = `textFieldButtonGrp -columnWidth3 70 450 100 -editable false
+									-label "Playblast File :" -text "Select playblast file" -buttonLabel "  Browse...  " -buttonCommand "b2FileDialog fileMulti mov selectMovField" selectMovField`;
+					separator;
+					text -font boldLabelFont -label "External Files";
+					text -bgc 1 1 0 -label "마야 이외의 소프트웨어를 사용했다면 여기에 파일을 추가해 주세요.\n폴더는 올라가지 않으니 폴더단위의 파일은 zip으로 압축해서 올려 주세요.";	
+					textScrollList  -width 600 -height 100 -font "smallFixedWidthFont" -enable true -allowMultiSelection true exFileList;
+					rowLayout -numberOfColumns 2;
+						button -label "Add External Files" -width 298 -command "b2FileDialog fileMulti none exFileList";
+						button -label "Remove Selected Files" -width 298 -command "b2DelSelectedItem exFileList";
+					setParent ..;
+					separator;
+					frameLayout -label "Warning Message" -width 600 -collapsable true -collapse 1 warningMessageLayout;
+						scrollField -width 588 -height 150 warningMessageField;
+				setParent $rootLayout;
+					separator;
+					rowLayout -numberOfColumns 2;
+						button -label "Save" -width 298 -bgc 0.5 0.8 0.5 -command "b2DoSaveAniDev dev" saveButton;
+						button -label "Cancel" -width 298 -bgc 0.8 0.5 0.5 -command "deleteUI b2SubWin1";
+
+			showWindow $window;
+			
+			// 카메라 이름 확인
+			int $checkCam = `b2CheckCamName`;
+			if( $checkCam == 0 )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "cam_main 카메라가 없습니다. 이 문제를 해결하지 않으면 씬을 저장할 수 없습니다.";
+				button -edit -enable false saveButton;
+			}
+			else if( $checkCam == 2 )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "두개 이상의 cam_main 카메라가 있습니다. 이 문제를 해결하지 않으면 씬을 저장할 수 없습니다.";
+				button -edit -enable false saveButton;
+			}
+			else if( $checkCam == 3)
+			{
+				$disMatchInfo[size($disMatchInfo)] = "cam_main 카메라의 프레임 정보가 샷의 설정과 다릅니다. 이 문제를 해결하지 않으면 씬을 저장할 수 없습니다.";
+				button -edit -enable false saveButton;
+			}
+			//기본 샷 설정과 현재 씬 설정이 일치하지 않는 경우 UI에 표시
+			if( $shtInfo[1] != $currXRes || $shtInfo[2] != $currYRes )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "현재 Resolution 정보가 샷의 기본 설정과 다릅니다.";
+				text -edit -bgc 1 1 0 resXInfoTxt1;
+				text -edit -bgc 1 1 0 resYInfoTxt1;
+			}
+			if( $shtInfo[3] != $currStFrame || $shtInfo[4] != $currEdFrame )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "현재 Frame range 정보가 샷의 기본 설정과 다릅니다.";
+				text -edit -bgc 1 1 0 stFrameInfoTxt1;
+				text -edit -bgc 1 1 0 edFrameInfoTxt1;
+			}
+			if( $defFps != $currFps )
+			{
+				$disMatchInfo[size($disMatchInfo)] = "현재 FPS 정보가 샷의 기본 설정과 다릅니다.";
+				text -edit -bgc 1 1 0 fpsInfoTxt1;
+			}
+			if( size($disMatchInfo) )
+			{
+				string $warningMessage = "=================================================================\n";
+				$warningMessage += "이 씬의 설정이 샷의 기본정보와 일치하지 않는 부분이 있습니다.\n앞으로 문제를 일으킬 수 있으므로 확인 후 계속 해 주세요!\n";
+				$warningMessage += "=================================================================\n";
+				
+				for( $eachInfo in $disMatchInfo )
+				{
+					$warningMessage += $eachInfo + "\n";
+				}
+				frameLayout -edit -collapse 0 warningMessageLayout;
+				scrollField -edit -bgc 1 1 0 -text $warningMessage warningMessageField;
+			}
+		}
+		print "b2SaveFxDevUI............................................................................................................procedure end\n";
+	}
+	//-/
+	
+	//b2DelSelectedItem
+	//-
+	global proc b2DelSelectedItem( string $uiName )
+	{
+		string $uiType = `objectTypeUI $uiName`;
+		if( $uiType == "textScrollList" )
+		{
+			string $selItem[] = `textScrollList -q -selectItem $uiName`;
+			for( $eachItem in $selItem )
+			{
+				textScrollList -edit -removeItem $eachItem $uiName;
+			}
+		}
+	
+	}
+	
+	//-/
+
+	//b2SaveFxRelUI
+	//-
+	global proc b2SaveFxRelUI()
+	{
+	
+	}
+	//-/
+
+	
+//-/

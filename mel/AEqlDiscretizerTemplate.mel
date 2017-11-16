@@ -1,0 +1,18 @@
+global proc  AEqlDiscretizerTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Discretizer Property" -collapse 0;
+		editorTemplate -addControl "resolution";
+		editorTemplate -addControl "compatibleTessellation";
+		editorTemplate -suppress "inputCurve";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

@@ -1,0 +1,33 @@
+global proc int qlClearCache() 
+{
+	string $sims[];
+	string $clothes[];
+	string $sim;
+	string $cloth;
+	string $nodes[];
+
+	$clothes = qlGetClothes();
+	
+	
+	if(size($clothes) == 0) 
+	{
+		$sims = qlGetSimulators();
+		if(size($sims)==0) return 0;
+		
+		for($sim in $sims)
+		{
+			$nodes = qlGetClothesBelongToThisSolver($sim);
+			$clothes = stringArrayCatenate($clothes, $nodes);
+		}
+		
+	}
+	
+	for($cloth in $clothes)
+	{
+		if($cloth=="") continue;
+		currentTime -e `getAttr ($cloth+".startTime")`;
+		qlTruncateSimCache($cloth);
+	}
+	
+	return 1;
+}

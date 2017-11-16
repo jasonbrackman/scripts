@@ -1,0 +1,264 @@
+global proc int qlPerFrameCacheOpenFolderCB( string $attrname,
+                                 string $foldername,
+                                 string $fileType )
+{
+	setAttr $attrname -type "string" $foldername;
+	return true;
+}
+global proc qlPerFrameCacheFolderBrowser ( string $cmd )
+{
+	fileBrowser ($cmd, "Per-Frame Cache Folder", "", 4);
+}
+
+global proc  qlPerFrameCacheFolderReplace(string $attrName)
+{
+	connectControl -fileName perFrameCacheFolderField $attrName;
+	string $load_command = "qlPerFrameCacheOpenFolderCB"+" "+$attrName;
+
+      symbolButton -e -c ("qlPerFrameCacheFolderBrowser \"" + $load_command + "\"") browserBtn;
+}
+global proc  qlPerFrameCacheFolderNew(string $attrName)
+{
+	setUITemplate -pst attributeEditorTemplate;
+	columnLayout -adjustableColumn 1 cacheNameLayout;
+		rowLayout -nc 4 -cw 4 25;
+		text -l "Per Frame Cache Folder";
+		textField perFrameCacheFolderField;
+		symbolButton -i "navButtonBrowse.xpm" browserBtn;
+	setParent ..;
+	setUITemplate -ppt;
+	qlPerFrameCacheFolderReplace($attrName);
+}
+
+
+global proc int qlHysteresisLoadFileCB( string $attrname,
+                                 string $filename,
+                                 string $fileType )
+{
+	string	$tokenAry[];
+	tokenize($attrname, ".", $tokenAry);
+	if(`qlCommand -n $tokenAry[0] -c "openHysteresis" -a $filename` == 1) {
+		setAttr $attrname -type "string" $filename;
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+global proc int qlHysteresisSaveFileCB( string $attrname,
+                                 string $filename,
+                                 string $fileType )
+{
+	string	$tokenAry[];
+	tokenize($attrname, ".", $tokenAry);
+	if(`qlCommand -n $tokenAry[0] -c "saveHysteresis" -a $filename` == 1) {
+		setAttr $attrname -type "string" $filename;
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+global proc qlHysteresisLoadFileBrowser( string $cmd )
+{
+	fileBrowser ($cmd, "Open Hysteresis", "", 0);
+}
+global proc qlHysteresisSaveFileBrowser( string $cmd )
+{
+	fileBrowser ($cmd, "Save Hysteresis", "", 1);
+}
+global proc  qlHysteresisNameNew(string $attrName)
+{
+	setUITemplate -pst attributeEditorTemplate;
+	columnLayout -adjustableColumn 1 hysteresisNameLayout;
+		rowLayout -nc 4 -cw 4 25;
+		text -l "Hysteresis Name";
+		textField hysteresisNameField;
+		symbolButton -i "navButtonBrowse.xpm" browserBtn;
+		symbolButton -i "fileSave.xpm" saveBtn;
+	setParent ..;
+	setUITemplate -ppt;
+	
+    qlHysteresisNameReplace($attrName);
+}
+
+global proc  qlHysteresisNameReplace(string $attrName)
+{
+	connectControl -fileName hysteresisNameField $attrName;
+	string $load_command = "qlHysteresisLoadFileCB"+" "+$attrName;
+	string $save_command = "qlHysteresisSaveFileCB"+" "+$attrName;
+
+    symbolButton -e -c ("qlHysteresisLoadFileBrowser \"" + $load_command + "\"") browserBtn;
+    symbolButton -e -c ("qlHysteresisSaveFileBrowser \"" + $save_command + "\"") saveBtn;
+}
+
+global proc qlUpdateProximityCriterion(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".overrideProximityCriterion" )`;	
+	editorTemplate -dimControl $nodeName "proximityCriterion" (!$override);
+}
+
+global proc qlUpdateThickness(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".overrideThickness" )`;	
+	editorTemplate -dimControl $nodeName "thickness" (!$override);
+}
+
+global proc qlUpdateGravity(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".overrideGravity" )`;	
+	editorTemplate -dimControl $nodeName "gravity" (!$override);
+}
+
+global proc qlUpdateClothSelfCollision(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".selfCollision" )`;	
+	editorTemplate -dimControl $nodeName "intraClothCollision" (!$override);
+	editorTemplate -dimControl $nodeName "interClothCollision" (!$override);
+	editorTemplate -dimControl $nodeName "overrideProximityCriterion" (!$override);
+	editorTemplate -dimControl $nodeName "proximityCriterion" (!($override && getAttr($nodeName+".overrideProximityCriterion")));
+}
+
+global proc qlUpdateAnisotropicControl(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".anisotropicControl" )`;	
+	editorTemplate -dimControl $nodeName "uStretchScale" (!$override);
+	editorTemplate -dimControl $nodeName "vStretchScale" (!$override);
+}
+
+
+global proc qlUpdateCompression(string $nodeName)
+{
+	int $override = `getAttr ($nodeName + ".overrideCompression" )`;	
+	editorTemplate -dimControl $nodeName "compression" (!$override);
+}
+
+global proc  AEqlClothShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Material Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "lengthScale";
+		editorTemplate -addControl "density";
+		editorTemplate -l "Stretch Resistance" -addControl "stretch";
+		editorTemplate -l "Shear Resistance" -addControl "shear";
+		editorTemplate -addControl "stretchDamp";
+		editorTemplate -l "Bend Resistance" -addControl "bend";
+		editorTemplate -addControl "bendDamp";
+		editorTemplate -addControl "bendYield";
+		editorTemplate -addControl "bendPlasticity";
+		editorTemplate -addControl "airDrag";
+		editorTemplate -addControl "rubber";
+		editorTemplate -addControl "viscousDamp";
+		editorTemplate -addControl "friction";
+		editorTemplate -addControl "pressure";
+		editorTemplate -addControl "overrideGravity" "qlUpdateGravity";
+		editorTemplate -addControl "gravity";
+		editorTemplate -addControl "overrideCompression" "qlUpdateCompression";
+		editorTemplate -l "Compression Resistance" -addControl "compression";
+		editorTemplate -addControl "anisotropicControl" "qlUpdateAnisotropicControl";
+		editorTemplate -l "Warp(U) Resistance Scale" -addControl "uStretchScale";
+		editorTemplate -l "Weft(V) Resistance Scale" -addControl "vStretchScale";
+		editorTemplate -callCustom "qlHysteresisNameNew" "qlHysteresisNameReplace" "hysteresisName";
+		editorTemplate -suppress "hysteresisName";
+
+	editorTemplate -endLayout;
+
+	editorTemplate -beginLayout "Collision Attributes" -collapse 1;
+		editorTemplate -addControl "solidCollision";
+		editorTemplate -io;
+		editorTemplate -addControl "selfCollision" "qlUpdateClothSelfCollision";
+		editorTemplate -io;
+		editorTemplate -addControl "intraClothCollision";
+		editorTemplate -io;
+		editorTemplate -addControl "interClothCollision";
+		editorTemplate -io;
+		editorTemplate -addControl "overrideProximityCriterion" "qlUpdateProximityCriterion";
+		editorTemplate -addControl "proximityCriterion";
+		editorTemplate -addControl "overrideThickness" "qlUpdateThickness";
+		editorTemplate -addControl "thickness";
+		editorTemplate -endLayout;
+
+	editorTemplate -endLayout;
+
+
+	editorTemplate -beginLayout "Cache Attributes" -collapse 1;
+		editorTemplate -addControl "startTime";
+		editorTemplate -callCustom "qlPerFrameCacheFolderNew" "qlPerFrameCacheFolderReplace" "cacheFolder";
+		editorTemplate -addControl "cacheName";
+		editorTemplate -addControl "cacheSubframes";
+	editorTemplate -endLayout;
+	
+	editorTemplate -beginLayout "Rest Shape Attributes" -collapse 1;
+		editorTemplate -l "Update Stretch" -addControl "preserveStretchFromRestShape";
+		editorTemplate -io;
+		editorTemplate -l "Update Bending" -addControl "preserveBendingFromRestShape";
+	editorTemplate -endLayout;
+	
+	editorTemplate -beginLayout "Modified Maps" -collapse 1;
+		editorTemplate -l "Density Map" -addControl "densityMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm01r";
+		editorTemplate -l "Friction Map" -addControl "frictionMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm02r";
+		editorTemplate -l "Stretch Map" -addControl "stretchMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm03r";
+		editorTemplate -l "Stretch Damp Map" -addControl "stretchDampMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm04r";
+		editorTemplate -l "Shear Map" -addControl "shearMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm05r";
+		editorTemplate -l "Rubber Map" -addControl "rubberMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm06r";
+		editorTemplate -l "Bend Map" -addControl "bendMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm07r";
+		editorTemplate -l "Bend Damp Map" -addControl "bendDampMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm08r";
+		editorTemplate -l "Plasticity Map" -addControl "plasticityMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm09r";
+		editorTemplate -l "Wrinkle Map" -addControl "wrinkleMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm10r";
+		editorTemplate -l "Self Collision Map" -addControl "selfCollisionMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm11r";
+		editorTemplate -l "Solid Collision Map" -addControl "solidCollisionMapFlag";		
+		editorTemplate -l "Min Max" -addControl "mm12r";
+		editorTemplate -l "Solution Map" -addControl "solutionMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm13r";
+		editorTemplate -l "Air Drag Map" -addControl "airDragMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm14r";
+		editorTemplate -l "Field Map" -addControl "fieldMapFlag";
+		editorTemplate -l "Min Max" -addControl "mm15r";
+		editorTemplate -l "Soft Constraint Map" -addControl "softConstraintMapFlag";			
+		editorTemplate -l "Min Max" -addControl "mm19r";
+		editorTemplate -l "Proximity Criterion Map" -addControl "proximityCriterionMapFlag";	
+		editorTemplate -l "Min Max" -addControl "mm20r";
+		editorTemplate -l "Viscous Damp Map" -addControl "viscousDampMapFlag";	
+		editorTemplate -l "Min Max" -addControl "mm21r";
+		editorTemplate -l "Length Scale Map" -addControl "lengthScaleMapFlag";	
+		editorTemplate -l "Min Max" -addControl "mm22r";
+		editorTemplate -l "Thickness Map" -addControl "thicknessMapFlag";	
+		editorTemplate -l "Min Max" -addControl "mm23r";
+		editorTemplate -l "Pressure Map" -addControl "pressureMapFlag";	
+		editorTemplate -l "Min Max" -addControl "mm24r";
+		editorTemplate -l "Gravity Map" -addControl "gravityMapFlag";	
+		editorTemplate -l "Min Max" -addControl "mm25r";
+	editorTemplate -endLayout;
+	
+	editorTemplate -suppress "inputCloth";
+		editorTemplate -suppress "currentTime";
+		editorTemplate -suppress "velocityField";
+		editorTemplate -suppress "externalForce";		
+		editorTemplate -suppress "constraint";
+		editorTemplate -suppress "goal";
+		editorTemplate -suppress "localSimulation";
+		editorTemplate -suppress "animatedRestMesh";
+		editorTemplate -suppress "outputMesh";
+
+	// Include base class attributes.
+	//
+	AEshapeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

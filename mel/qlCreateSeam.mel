@@ -1,0 +1,140 @@
+global proc string qlCreateSeam() 
+{
+	int $i;
+	int $j;
+	string $selectionList[];
+	string $curveList[];
+	string $seam;
+	string $plugs[];
+	string $nodes[];
+	string $nodes2[];
+	string $parents[];
+	string $pattern1, $pattern2;
+	string $plug1, $plug2;
+	string $disc1, $disc2;
+	string $tokens[];
+
+	$selectionList=`ls -sl -o`;
+
+	for($i=0;$i<size($selectionList);$i++)
+	{
+		$shapes = `listRelatives -f -ad -typ "nurbsCurve" $selectionList[$i]`;
+		appendStringArray($curveList, $shapes, size($shapes));
+	}
+
+	int $numCurve = size($curveList);
+	if($numCurve==0 || $numCurve>2)
+	{
+		error "Select one or two curves";
+		return "";
+	}
+
+	if($numCurve==2)
+	{
+		$plugs = `listConnections -s 0 -d 1 -t "qlPattern" -p 1 ($curveList[0]+".worldSpace")`;
+		if(size($plugs)!=1)
+		{
+			error "Each curve must belong to a pattern";
+			return "";
+		}
+		$plug1 = $plugs[0];
+		
+	
+		$plugs = `listConnections -s 0 -d 1 -t "qlPattern" -p 1 ($curveList[1]+".worldSpace")`;
+		if(size($plugs)!=1)
+		{
+			error "Each curve must belong to a pattern";
+			return "";
+		}
+		$plug2 = $plugs[0];
+	}
+	else if($numCurve==1)
+	{
+		$plugs = `listConnections -s 0 -d 1 -t "qlPattern" -p 1 ($curveList[0]+".worldSpace")`;
+		if(size($plugs)!=2)
+		{
+			error "Each curve must belong to a pattern";
+			return "";
+		}
+		$plug1 = $plugs[0];
+		$plug2 = $plugs[1];
+	}
+
+	tokenize $plug1 "." $tokens;
+	$pattern1 = $tokens[0];
+	tokenize $plug2 "." $tokens;
+	$pattern2 = $tokens[0];
+
+	$nodes = `listConnections -s 0 -d 1 -t "qlDiscretizer" ($pattern1+".output")`;
+	if(size($nodes)!=1)
+	{
+		error "Each pattern must belong to a discretizer";
+		return "";
+	}
+	$disc1 = $nodes[0];
+
+	$nodes = `listConnections -s 0 -d 1 -t "qlDiscretizer" ($pattern2+".output")`;
+	if(size($nodes)!=1)
+	{
+		error "Each pattern must belong to a discretizer";
+		return "";
+	}
+	$disc2 = $nodes[0];
+
+
+	if($disc1 != $disc2)
+	{
+		$plugs = `listConnections -s 1 -d 0 -t "qlPattern" -p 1 ($disc2+".inputPattern")`;
+		for($i=0;$i<size($plugs);$i++)
+		{
+			connectAttr -na $plugs[$i] ($disc1+".inputPattern");
+		}
+		$plugs = `listConnections -s 1 -d 0 -t "qlSeamShape" -p 1 ($disc2+".inputSeam")`;
+		for($i=0;$i<size($plugs);$i++)
+		{
+			connectAttr -na $plugs[$i] ($disc1+".inputSeam");
+		}
+	}
+	
+
+	
+	$seam = `createNode qlSeamShape`;
+	connectAttr $plug1 ($seam+".inputCurve1");
+	connectAttr $plug2 ($seam+".inputCurve2");
+	connectAttr -na ($seam+".output") ($disc1+".inputSeam");
+
+
+	if($disc1 != $disc2) 
+	{
+		$nodes = `listConnections -s 0 -d 1 -t "qlClothShape" $disc2`;
+		for($i=0;$i<size($nodes);$i++)
+		{
+			$nodes2 = `listConnections -s 0 -d 1 ($nodes[$i]+".outputMesh")`;
+			for($j=0;$j<size($nodes2);$j++)
+			{
+				delete $nodes2[$j];
+			}
+			delete $nodes[$i];
+		}
+	}
+
+
+/*
+	$nodes = `listHistory -f 1 -bf $disc1`;
+	for($node in $nodes)
+	{
+		if(nodeType($node) == "qlClothShape")
+		{
+			string $solver = qlGetSolver($node);
+			setAttr ($solver+".fu") 1;
+			setAttr ($node+".fu") 1;
+			//dgeval ($node+".outputMesh");
+			break;
+		}
+	}
+	*/
+
+	
+	select $seam;
+	return $seam;
+}

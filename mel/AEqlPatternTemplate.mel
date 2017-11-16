@@ -1,0 +1,21 @@
+global proc  AEqlPatternTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "Pattern Property" -collapse 0;
+		editorTemplate -suppress "inputCurve";
+		editorTemplate -addControl "resolutionScale";
+		editorTemplate -addControl "uvAngle";
+		editorTemplate -addControl "uScale";
+		editorTemplate -addControl "vScale";
+		editorTemplate -addControl "flipNormal";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

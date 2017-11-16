@@ -1,0 +1,135 @@
+global proc string qlChangeSolver(string $_solver) 
+{
+	string $clothes[];
+	string $cloth;
+	string $solver;
+	string $old_solver;
+	string $plugs[];
+	string $nodes[];
+	string $fields[];
+	string $springs[];
+	string $plug;
+	string $node;
+	int $ci;
+	int $mi;
+	$mi = -1;
+	
+	$clothes = qlGetClothes();
+	
+	if(size($clothes) == 0)
+	{
+		error "select cloth(es)";
+		return "";
+	}
+	
+	$solver = qlValidateSolver($_solver);
+	if( $solver == "") {
+		error ($_solver + " is not a valid solver");
+		return "";		
+	}
+	
+	for($cloth in $clothes)
+	{	
+	
+		$nodes = `listConnections -sh 1 ($cloth+".inputGeomChangeNotify")`;
+		if(size($nodes)>0)
+		{
+			$old_solver = $nodes[0];
+		}
+		else
+		{
+			$old_solver = "";
+		}
+		
+		if($old_solver == $solver) continue;
+		
+		$plugs = `listConnections -p 1 ($cloth+".currentState")`;
+		for($plug in $plugs)
+		{
+			disconnectAttr $plug ($cloth+".currentState");
+			$mi = qlGetLogicalIndex($plug);
+		}
+		
+		$plugs = `listConnections -p 1 ($cloth+".clothState")`;
+		for($plug in $plugs)
+		{
+			disconnectAttr ($cloth+".clothState") $plug;
+			$mi = qlGetLogicalIndex($plug);
+		}
+		
+		
+		$plugs = `listConnections -p 1 ($cloth+".inputGeomChangeNotify")`;
+		for($plug in $plugs)
+		{
+			disconnectAttr ($cloth+".inputGeomChangeNotify") $plug;
+			$mi = qlGetLogicalIndex($plug);
+		}
+		
+		$plugs = `listConnections -p 1 ($cloth+".startTime")`;
+		for($plug in $plugs)
+		{
+			disconnectAttr $plug ($cloth+".startTime");
+		}
+		
+		$plugs = `listConnections -p 1 ($cloth+".resim")`;
+		for($plug in $plugs)
+		{
+			disconnectAttr $plug ($cloth+".resim");  
+		}
+		
+		// collect field connections
+		if($mi>=0) {
+			$fields = `listConnections -p 1 ($old_solver+".fieldData["+$mi+"]")`;
+			for($plug in $fields)
+			{
+				disconnectAttr ($old_solver+".fieldData["+$mi+"]") $plug;
+			}
+		}
+		
+		// collect spring connections
+		$springs = `listConnections -sh 1 -t qlSpringShape ($cloth+".outputMesh")`;
+		$springs = stringArrayRemoveDuplicates($springs);
+		for($node in $springs)
+		{
+			$plugs = `listConnections -p 1 ($node+".spring")`;
+			for($plug in $plugs)
+			{
+				disconnectAttr ($node+".spring") $plug;
+			}
+		}
+		
+		$ci=0;
+		while(eval("connectionInfo -id "+$solver+".inputCloth["+$ci+"]")==1) $ci++;
+		
+		connectAttr ($solver+".startTime") ($cloth+".startTime");
+		connectAttr ($solver+".resim") ($cloth+".resim");
+		connectAttr ($solver+".currentState["+$ci+"]") ($cloth+".currentState");
+		connectAttr ($cloth+".inputGeomChangeNotify") ($solver+".inputCloth["+$ci+"]");	
+		connectAttr ($cloth+".clothState") ($solver+".clothState["+$ci+"]") ;
+		
+		for($plug in $fields)
+		{
+			connectAttr ($solver+".fieldData["+$ci+"]") $plug;
+		}
+		
+		for($node in $springs)
+		{
+			string $clothes[];
+			$clothes = qlGetTwoClothesOfSpring($node);
+			//if($clothes[0] != $clothes[1]) {
+			//	warning ($node + " is connecting two clothes : " + $clothes[0] +" and " + $clothes[1] +". So this spring will be disregarded during simulation.");
+			//}		
+			connectAttr -na ($node+".spring") ($solver+".spring");
+		}
+		
+		//setAttr ($old_solver+".forceUpdate") 1;
+		//dgeval ($old_solver+".outputMesh");
+	
+	}
+		
+	//setAttr ($solver+".forceUpdate") 1;
+	//dgeval ($solver+".outputMesh");
+	
+	select $solver;
+	return $solver;
+}

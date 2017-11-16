@@ -1,0 +1,27 @@
+global proc  AEqlLineConstraintShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "LineConstraint Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "enableCollision";
+		editorTemplate -addControl "soft";
+		editorTemplate -addControl "stiffness";
+		editorTemplate -addControl "damping";
+		editorTemplate -addControl "lineDirection";
+		editorTemplate -suppress "vertexIndices";
+		editorTemplate -suppress "inputMatrix";
+		editorTemplate -suppress "initPositions";
+		editorTemplate -suppress "outputPositions";
+		editorTemplate -suppress "filterMatrix";
+		editorTemplate -suppress "constraint";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

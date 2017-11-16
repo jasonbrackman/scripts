@@ -1,0 +1,39 @@
+global proc string qlConnectRestShape() 
+{
+	string $nodes[];
+
+	$nodes = qlGetClothAndObject();
+
+	if($nodes[0] == "" || $nodes[1] == "") {
+		error "select a mesh and a cloth";
+		return "";
+	}
+
+	connectAttr ($nodes[1] + ".worldMesh") ($nodes[0]+".restShape");
+
+	select $nodes[0];
+	return $nodes[0];
+}
+
+global proc string qlDisconnectRestShape()
+{
+	string $cloth;
+	string $mesh;
+
+	$cloth = qlGetCloth();
+
+	if($cloth=="") {
+		error "select a cloth";
+		return "";
+	}
+	
+	$mesh = `connectionInfo -sfd ($cloth+".restShape")`;
+	
+	if($mesh!="") {	
+		disconnectAttr $mesh ($cloth+".restShape");
+		dgdirty ($cloth+".inputGeometry");
+	}
+
+	select $cloth;
+	return $cloth;
+}

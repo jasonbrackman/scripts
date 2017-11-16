@@ -1,0 +1,30 @@
+global proc string qlCreatePointConstraint() 
+{
+	string $sim;
+	string $pointconst;
+	string $poslist[];
+
+	$sim = qlGetCloth();
+
+	if($sim == "") return "";
+
+	string $vi = `qlExpandVerIdx`;
+	string $vp = `qlExpandVerPos`;
+
+	if($vi=="0") return "";
+
+	$pointconst = `createNode qlPointConstraintShape`;
+	string $parents[] = `listRelatives -p $pointconst`;
+
+	if(tokenizeList($vp, $poslist))
+		xform -piv ($poslist[1]+"cm") ($poslist[2]+"cm") ($poslist[3]+"cm") $parents[0];
+
+	connectAttr ($parents[0]+".worldMatrix") ($pointconst+".inputMatrix");
+	connectAttr -na ($pointconst+".constraint") ($sim+".constraint");
+	
+	eval("setAttr "+$pointconst+".vertexIndices -type Int32Array "+$vi);
+	eval("setAttr "+$pointconst+".initPositions -type vectorArray "+$vp);
+
+	select $pointconst;
+	return $pointconst;
+}

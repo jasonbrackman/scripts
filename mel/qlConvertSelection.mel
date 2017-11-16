@@ -1,0 +1,504 @@
+global proc string [] qlConvertSelectionToSolvers() 
+{
+	string $ret[];
+	string $sims[];
+	string $sim;
+	string $clothes[];
+	string $cloth;
+
+	string $sels[] = `ls -sl -o`;
+	string $node;
+	string $shape;
+	int $i=0;
+	
+	for($node in $sels)
+	{
+		$shape = qlGetShape($node);
+
+		string $bsims[] = qlGetHistory($shape, "qlSolverShape", 0);
+		string $fsims[] = qlGetHistory($shape, "qlSolverShape", 1);
+		$sims = stringArrayCatenate( $bsims, $fsims );
+		string $bclothes[] = qlGetHistory($shape, "qlClothShape", 0);
+		string $fclothes[] = qlGetHistory($shape, "qlClothShape", 1);
+		$clothes = stringArrayCatenate( $bclothes, $fclothes );	
+		
+		for($sim in $sims) { $ret[$i] = $sim; $i++; }
+		for($cloth in $clothes) { $ret[$i] = qlGetSolver($cloth); $i++;}	
+
+		string $bgoals[] = qlGetHistory($shape, "qlGoalConstraintShape", 0);		
+		string $fgoals[] = qlGetHistory($shape, "qlGoalConstraintShape", 1);		
+		string $goals[] = stringArrayCatenate( $bgoals, $fgoals );
+		for($goal in $goals) 
+		{
+			$clothes = qlGetHistory($goal, "qlClothShape", 1);
+			for($cloth in $clothes) { $ret[$i] = qlGetSolver($cloth); $i++;}
+		}
+	}
+		
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}
+
+
+
+global proc string [] qlConvertSelectionToClothes() 
+{
+	string $ret[];
+	string $sims[];
+	string $sim;
+	string $clothes[];
+	string $cloth;
+	string $discs[];
+
+	string $sels[] = `ls -sl -o`;
+	string $node;
+	string $shape;
+	string $ntype;
+	int $i=0;
+	
+	for($node in $sels)
+	{
+		$shape = qlGetShape($node);
+		$ntype = nodeType($shape);
+
+		
+		if($ntype == "qlSolverShape")
+		{
+			$clothes = qlGetClothesBelongToThisSolver($shape);
+			appendStringArray($ret, $clothes, size($clothes)); $i+=size($clothes);	
+		}
+		else if($ntype == "qlClothShape")
+		{
+			$ret[$i] = $shape; $i++;
+		}
+		else if( $ntype == "qlPointConstraintShape" ||
+			$ntype == "qlLineConstraintShape" ||
+			$ntype == "qlPlaneConstraintShape" ||
+			$ntype == "qlAttachConstraintShape")
+		{
+			$clothes = `listConnections -sh 1 ($shape+".constraint")`;
+			if(size($clothes)>0)
+			{
+				$ret[$i] = $clothes[0]; $i++;
+			}
+		}
+		else if( $ntype == "qlGoalShapeConstraint")
+		{
+			$clothes = `listConnections -sh 1 ($shape+".goal")`;
+			if(size($clothes)>0)
+			{
+				$ret[$i] = $clothes[0]; $i++;
+			}
+		}
+		else if($ntype == "qlSpringShape")
+		{
+			$clothes = `listConnections -sh 1 ($shape+".inMesh1")`; 
+			if(size($clothes)>0) { $ret[$i] = $clothes[0]; $i++; }
+		
+			$clothes = `listConnections -sh 1 ($shape+".inMesh2")`;
+			if(size($clothes)>0) { $ret[$i] = $clothes[0]; $i++; }
+		}
+		else if($ntype == "qlFieldFilterShape")
+		{
+			$clothes = `listConnections -sh 1 ($shape+".outputField")`;
+			if(size($clothes)>0)
+			{
+				$ret[$i] = $clothes[0]; $i++;
+			}			
+		}
+		else if(gmatch($ntype, "*[fF]ield*")==1)
+		{
+			string $clothes[] = qlGetHistory($shape, "qlClothShape", 1);
+			appendStringArray($ret, $clothes, size($clothes)); $i+=size($clothes);			
+		}
+		else if($ntype == "fluidShape")
+		{
+			$clothes = `listConnections -sh 1 ($shape+".outputForce")`;
+			appendStringArray($ret, $clothes, size($clothes)); $i+=size($sims);
+		}
+		else if($ntype == "qlPattern")
+		{
+			$discs = `listConnections -sh 1 ($shape+".output")`;
+			if(size($discs)>0)
+			{
+				$clothes = `listConnections -sh 1 ($discs[0]+".output")`;
+				if(size($clothes)>0)
+				{
+					$ret[$i] = $clothes[0]; $i++;
+				}
+			}
+		}
+		else if($ntype == "qlSeamShape")
+		{
+			$discs = `listConnections -sh 1 ($shape+".output")`;
+			if(size($discs)>0)
+			{
+				$clothes = `listConnections -sh 1 ($discs[0]+".output")`;
+				if(size($clothes)>0)
+				{
+					$ret[$i] = $clothes[0]; $i++;
+				}
+			}
+		}
+		else
+		{
+			$cloth = qlHasCloth($shape);
+			if($cloth != "") { $ret[$i] = $cloth; $i++; continue; }
+
+			string $bclothes[] = qlGetHistory($shape, "qlClothShape", 0);
+			string $fclothes[] = qlGetHistory($shape, "qlClothShape", 1);
+			$clothes = stringArrayCatenate( $bclothes, $fclothes );		
+			if(size($clothes)>0) 
+			{ 
+				appendStringArray($ret, $clothes, size($clothes)); $i+=size($clothes);	
+				continue; 
+			}
+			
+			string $bsims[] = qlGetHistory($shape, "qlSolverShape", 0);
+			string $fsims[] = qlGetHistory($shape, "qlSolverShape", 1);
+			$sims = stringArrayCatenate( $bsims, $fsims );
+			for($sim in $sims) 
+			{ 
+				$clothes = qlGetClothesBelongToThisSolver($sim);
+				appendStringArray($ret, $clothes, size($clothes)); $i+=size($clothes);	
+			}
+			
+			string $bgoals[] = qlGetHistory($shape, "qlGoalConstraintShape", 0);		
+			string $fgoals[] = qlGetHistory($shape, "qlGoalConstraintShape", 1);		
+			string $goals[] = stringArrayCatenate( $bgoals, $fgoals );
+			for($goal in $goals) 
+			{
+				$clothes = qlGetHistory($goal, "qlClothShape", 1);
+				for($cloth in $clothes) { $ret[$i] = $cloth; $i++;}
+			}
+				
+		}
+		
+	}
+		
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}
+
+
+global proc string [] qlConvertSelectionToConstraints() 
+{
+	string $ret[];
+	string $clothes[];
+	string $cloth;
+	string $constraints[];
+	string $goals[];
+
+	int $i=0;
+
+	$clothes = qlConvertSelectionToClothes();
+	
+	for($cloth in $clothes)
+	{
+		$constraints = `listConnections -sh 1 ($cloth+".constraint")`;
+		appendStringArray($ret, $constraints, size($constraints));
+
+		$goals = `listConnections -sh 1 ($cloth+".goal")`;
+		appendStringArray($ret, $goals, size($goals));
+	}
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}
+
+global proc string [] qlConvertSelectionToColliders() 
+{
+	string $ret[];
+	string $solvers[];
+	string $solver;
+	string $colliders[];
+	string $collider;
+
+	int $i=0;
+
+	$solvers = qlConvertSelectionToSolvers();
+	
+	for($solver in $solvers)
+	{
+		$colliders = `listConnections -sh 1 ($solver+".collider")`;
+		appendStringArray($ret, $colliders, size($colliders));
+		for($collider in $colliders)
+		{
+			string $meshes[] = `listHistory -bf ($collider+".input")`;
+			for($mesh in $meshes)
+			{
+				if(nodeType($mesh) == "mesh") { appendStringArray($ret, {$mesh}, 1); break; }
+			}
+		}
+	}
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}
+
+global proc string [] qlConvertSelectionToFields() 
+{
+	string $ret[];
+	string $clothes[];
+	string $cloth;
+	string $vfields[];
+	string $ffields[];
+	string $ofields[];
+	string $field;
+
+	int $i=0;
+
+	$clothes = qlConvertSelectionToClothes();
+	
+	for($cloth in $clothes)
+	{
+		$vfields = `listConnections -sh 1 ($cloth+".velocityField")`;
+		appendStringArray($ret, $vfields, size($vfields));
+
+		$ffields = `listConnections -sh 1 ($cloth+".externalForce")`;
+		appendStringArray($ret, $ffields, size($ffields));
+
+		for($field in $vfields)
+		{
+			$ofields = `listConnections -sh 1 ($field+".inputField")`;
+			appendStringArray($ret, $ofields, size($ofields));
+		}
+		for($field in $ffields)
+		{
+			$ofields = `listConnections -sh 1 ($field+".inputField")`;
+			appendStringArray($ret, $ofields, size($ofields));
+		}
+	}
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}
+
+
+global proc string [] qlConvertSelectionToSprings() 
+{
+	string $ret[];
+	string $clothes[];
+	string $cloth;
+	string $springs[];
+
+	int $i=0;
+
+	$clothes = qlConvertSelectionToClothes();
+	
+	for($cloth in $clothes)
+	{
+		$springs = `listConnections -type "qlSpringShape" ($cloth+".outputMesh")`;
+		appendStringArray($ret, $springs, size($springs));
+		$springs = `listConnections -type "qlAttachSpringShape" ($cloth+".outputMesh")`;
+		appendStringArray($ret, $springs, size($springs));
+	}
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}
+
+global proc string [] qlConvertSelectionToPatterns() 
+{
+	string $ret[];
+	string $sims[];
+	string $sim;
+	string $clothes[];
+	string $cloth;
+	string $discs[];
+	string $disc;
+	string $patterns[];
+
+
+	string $sels[] = `ls -sl -o`;
+	string $node;
+	string $shape;
+	string $ntype;
+	int $i=0;
+	
+	for($node in $sels)
+	{
+		$shape = qlGetShape($node);
+		$ntype = nodeType($shape);
+
+		
+		if($ntype == "qlSeamShape")
+		{
+			$patterns = `listConnections ($shape+".inputCurve1")`;
+			if(size($patterns)>0) { $ret[$i] = $patterns[0]; $i++;}
+			$patterns = `listConnections ($shape+".inputCurve2")`;
+			if(size($patterns)>0) { $ret[$i] = $patterns[0]; $i++;}
+		}
+		else if($ntype == "qlPattern")
+		{
+			$ret[$i] = $shape; $i++;
+		}
+		else if($ntype == "nurbsCurve")
+		{
+			$patterns = `listConnections -type "qlPattern" ($shape+".worldSpace")`;
+			appendStringArray($ret, $patterns, size($patterns)); $i += size($patterns);
+		}
+		else if($ntype == "qlProperty")
+		{
+			$patterns = `listConnections -type "qlPattern" ($shape+".materialProperty")`;
+			appendStringArray($ret, $patterns, size($patterns)); $i += size($patterns);
+		}
+	}
+
+	if(size($ret)>0)
+	{
+		$ret = stringArrayRemoveDuplicates($ret);
+		select -cl;
+		for($node in $ret) select -add $node;
+		return $ret;
+	}
+		
+
+	clear $patterns;
+	$clothes = qlConvertSelectionToClothes();
+		
+	for($cloth in $clothes)
+	{
+		$discs = `listConnections -type "qlDiscretizer" ($cloth+".inputGeometry")`;
+		for($disc in $discs)
+		{
+			$patterns = `listConnections -type "qlPattern" ($disc+".inputPattern")`;
+		}
+		appendStringArray($ret, $patterns, size($patterns));
+	}
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}
+
+
+
+global proc string [] qlConvertSelectionToSeams() 
+{
+	string $ret[];
+	string $sims[];
+	string $sim;
+	string $clothes[];
+	string $cloth;
+	string $discs[];
+	string $disc;
+	string $seams[];
+	string $patterns[];
+
+
+	string $sels[] = `ls -sl -o`;
+	string $node;
+	string $shape;
+	string $ntype;
+	int $i=0;
+	
+	for($node in $sels)
+	{
+		$shape = qlGetShape($node);
+		$ntype = nodeType($shape);
+
+		
+		if($ntype == "qlSeamShape")
+		{
+			$ret[$i] = $shape; $i++;
+		}
+		else if($ntype == "qlPattern")
+		{
+			$seams = `listConnections -type "qlSeamShape" ($shape+".inputCurve")`;
+			appendStringArray($ret, $seams, size($seams)); $i += size($seams);
+		}
+		else if($ntype == "nurbsCurve")
+		{
+			$patterns = `listConnections -type "qlPattern" -plugs 1 ($shape+".worldSpace")`;
+			for($pattern in $patterns)
+			{
+				$seams = `listConnections -type "qlSeamShape" $pattern`;
+				appendStringArray($ret, $seams, size($seams)); $i += size($seams);
+			}			
+		}
+		else if($ntype == "qlProperty")
+		{
+			$patterns = `listConnections -type "qlPattern" ($shape+".materialProperty")`;
+			for($pattern in $patterns)
+			{
+				$seams = `listConnections -type "qlSeamShape" ($pattern+".inputCurve")`;
+				appendStringArray($ret, $seams, size($seams)); $i += size($seams);
+			}
+		}
+	}
+
+	if(size($ret)>0)
+	{
+		$ret = stringArrayRemoveDuplicates($ret);
+		select -cl;
+		for($node in $ret) select -add $node;
+		return $ret;
+	}
+		
+
+	clear $seams;
+	$clothes = qlConvertSelectionToClothes();
+		
+	for($cloth in $clothes)
+	{
+		$discs = `listConnections -type "qlDiscretizer" ($cloth+".inputGeometry")`;
+		for($disc in $discs)
+		{
+			$seams = `listConnections -type "qlSeamShape" ($disc+".inputSeam")`;
+		}
+		appendStringArray($ret, $seams, size($seams));
+	}
+
+	$ret = stringArrayRemoveDuplicates($ret);
+	if(size($ret)>0)
+	{
+		select -cl;
+		for($node in $ret) select -add $node;
+	}
+	
+	return $ret;
+}

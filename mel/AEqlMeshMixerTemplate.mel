@@ -1,0 +1,22 @@
+global proc  AEqlMeshMixerTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+	
+	editorTemplate -suppress "inMesh1";
+	editorTemplate -suppress "inMesh2";
+	editorTemplate -suppress "inMesh3";
+	editorTemplate -suppress "inMesh4";
+	editorTemplate -suppress "inMesh5";
+	editorTemplate -suppress "weightMap1";
+	editorTemplate -suppress "weightMap2";
+	editorTemplate -suppress "weightMap3";
+	editorTemplate -suppress "weightMap4";
+	editorTemplate -suppress "weightMap5";
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

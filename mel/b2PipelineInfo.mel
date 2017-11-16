@@ -1,0 +1,408 @@
+		//- b2GetHistoryString //------------------------------------------------------------------------------------------------------------------//
+		// - 히스토리 파일의 내용을 문자열로 반환
+		global proc string[] b2GetHistoryString(string $path)
+		{
+			print "b2GetHistoryString.................................................................................................procedure start\n";
+			string $outString = "";
+			string $historyTextArray[];
+			if (`filetest -f $path`)
+			{
+				$historyTextArray = `b2ReadXML $path`;
+				$outString = stringArrayToString($historyTextArray, "");
+			}
+			print "b2GetHistoryString...................................................................................................procedure end\n";
+			return $historyTextArray;
+		}
+		//-/
+
+
+		//- b2ReadXML //---------------------------------------------------------------------------------------------------------------------------//
+		// xml 포맷의 노트를 디스플레이 할 수 있는 포맷으로 변환
+		global proc string[] b2ReadXML(string $inputPath)
+		{
+			print "b2ReadXML..........................................................................................................procedure start\n";
+			string $outputString[];
+
+			string $notes[] = `b2ReadAllNotes note $inputPath`;
+			
+			// format string for display...
+			int $i=0;
+			for($note in $notes)
+			{
+					$outputString[$i] = b2FormatXML($note);
+					$i++;
+			}
+			print "b2ReadXML............................................................................................................procedure end\n";
+			return $outputString;
+		}
+		//-/
+
+
+		//- b2FormatXML //-------------------------------------------------------------------------------------------------------------------------// 
+		// 히스토리 노트를 디스플레이 포맷으로 변환
+		global proc string b2FormatXML(string $line)
+		{
+			print "$b2FormatXML.......................................................................................................procedure start\n";
+			int $debug = 0;
+			string $formatedXML;
+			// cull leading white space escape quotes
+			$line = `strip($line)`; // may not be needed
+		//	$line = `encodeString($line)`;
+			// match the author
+			string $author = `match "<author>[a-zA-Z0-9 \".-!?=\\]*</author>" $line`;
+			$author = substitute("<author>", $author, "");
+			$author = substitute("</author>", $author, "");
+			// match the date
+			string $date = `match "<date>[a-zA-Z0-9 \"-=\\]*</date>" $line`;
+			$date = substitute("<date>", $date, "");
+			$date = substitute("</date>", $date, "");
+			// match the time
+			string $time = `match "<time>[a-zA-Z0-9 \"-:!?=\\]*</time>" $line`;
+			$time = substitute("<time>", $time, "");
+			$time = substitute("</time>", $time, "");
+			// match the event
+			string $event = `match "<event>[a-zA-Z0-9 \"-=\\]*</event>" $line`;
+			$event = substitute("<event>", $event, "");
+			$event = substitute("</event>", $event, "");
+			// match the version
+			string $version = `match "<version>[0-9]*.[0-9]*</version>" $line`;
+			$version = substitute("<version>", $version, "");
+			$version = substitute("</version>", $version, "");
+			// match the comment
+		//	string $comment = `match "<comment>[a-zA-Z0-9 -:=\\\"]**</comment>" $line`;
+			string $comment = `match "<comment>.*</comment>" $line`;
+			$comment = substitute("<comment>", $comment, "");
+			$comment = substitute("</comment>", $comment, "");
+		//코멘트에 포함된 줄 바꿈 처리	
+			string $tokenizedString[];
+			int $number = `tokenize $comment "\n" $tokenizedString`;
+			string $outComment = "";
+			int $i = 0;
+			for ($i; $i<$number; $i++)
+			{
+				$outComment += ($tokenizedString[$i] + "\n");
+			}
+
+			// finally return content
+			$formatedXML = ("Author: " + $author + "\n" + 
+							"Date: " + $date + " " + $time + "\n" + 
+							"Event: " + $event);
+			if($version != "")
+			{
+				$formatedXML += (" (Version: " + $version + ")\n");
+			}
+			else
+			{
+				$formatedXML += ("\n");
+			}
+					
+			if($comment != "")
+			{
+				$formatedXML += ("Comment: \n" + $outComment);
+			}
+			else
+			{
+				$formatedXML += ("\n");
+			}
+			if ($debug) print ($formatedXML+"\n");
+			print "b2FormatXML..........................................................................................................procedure end\n";
+			return $formatedXML;
+		}
+		//-/
+
+
+		//- b2ReadAllNotes //-----------------------------------------------------------------------------------------------------------------------//
+		// 히스토리 파일의 내용을 읽어들여 <$keyword> - </keyword> 구간의 내용들을 string array로 반환
+		global proc string[] b2ReadAllNotes(string $keyword, string $inputPath)
+		{
+			print "b2ReadAllNotes.....................................................................................................procedure start\n";
+			string $noteContents[];
+			string $openWord = "<" + $keyword +">";
+			string $closeWord = "</" + $keyword + ">";
+			if(`filetest -f $inputPath` == 0)
+			{
+				return $noteContents;
+			}
+			$fileId = `fopen $inputPath "r"`;
+			string $nextLine = `fgetline $fileId`;
+			int $i = 0;
+			while(size($nextLine)>0)
+			{
+				$nextLine = b2GetCleanLineXML($nextLine);
+				$noteMatch = gmatch($nextLine, $openWord);
+				if($noteMatch == 1)
+				{
+					$nextLine = `fgetline $fileId`;
+					$nextLine = b2GetCleanLineXML($nextLine);
+					string $foo;
+					while(`match $closeWord $nextLine` == "")
+					{
+						$foo += ($nextLine + "\n");
+						$nextLine = `fgetline $fileId`;
+						$nextLine = b2GetCleanLineXML($nextLine);
+					}
+					$noteContents[$i] = $foo;
+					$foo = "";
+					$i++;
+				}
+				else
+				{
+					$nextLine = `fgetline $fileId`;
+					$nextLine = b2GetCleanLineXML($nextLine);
+				}
+			}
+			fclose $fileId;
+			int $i;
+			int $x=0;
+			string $output[];
+			//reverse order before returning
+			for ($i=size($noteContents);$i>0;$i--)
+			{
+				$output[$x] = $noteContents[$i-1];
+				$x++;
+			}
+			print "b2ReadAllNote........................................................................................................procedure end\n";
+			return $output;
+		}
+		//-/
+
+
+		
+		//- b2ExtractTaggedItems //----------------------------------------------------------------------------------------------------------------//
+		// b2ExtractTaggedItems
+		// 기능		- 입력받은 문자열에서 정해진 태그에 해당하는 아이템을 어레이로 반환
+		// 작동절차	- key값이 seq라면 연속된 번호를 찾아 반환, ""라면 하나만 반환		
+		global proc string[] b2ExtractTaggedItems( string $tag, string $key, string $infoLine )
+		{
+			print "b2ExtractTaggedItems...............................................................................................procedure start\n";
+			string $returnList[];
+			int $i = 0;
+			string $infoArray[] = `stringToStringArray $infoLine "\n"`;
+			string $openWord;
+			string $closeWord;
+			string $matchWord;
+			for( $item in $infoArray )
+			{
+				if( $key == "seq" )
+				{
+					$openWord = "<" + $tag + $i + ">";
+					$closeWord = "</" + $tag + $i + ">";
+					$matchWord = $openWord + "[a-zA-Z0-9_:./ ]+" + $closeWord;
+					$item = `match $matchWord $item`;
+					if( size($item) )
+					{
+						$item = substitute( $openWord, $item, "" );
+						$item = substitute( $closeWord, $item, "" );
+						$returnList[size($returnList)] = $item;
+						$i ++;
+					}
+				}
+				else if( $key == "" )
+				{
+					$openWord = "<" + $tag + ">";
+					$closeWord = "</" + $tag + ">";
+					$matchWord = $openWord + "[a-zA-Z0-9_]+" + $closeWord;
+					$item = `match $matchWord $item`;
+					if( size($item) )
+					{
+						$item = substitute( $openWord, $item, "" );
+						$item = substitute( $closeWord, $item, "" );
+						$returnList[size($returnList)] = $item;
+					}
+				}
+			}
+			print "b2ExtractTaggedItems.................................................................................................procedure end\n";
+			return $returnList;
+		}
+		//-/
+
+
+		//- b2GetCleanLineXML //-------------------------------------------------------------------------------------------------------------------//
+		// 전달받은 문자열에서 앞 뒤의 공백문자와 특수문자를 제거
+		global proc string b2GetCleanLineXML(string $line)
+		{
+			print "b2GetCleanLineXML..................................................................................................procedure start\n";
+			$line = `strip($line)`;
+			$line = `encodeString($line)`;
+			print "b2GetCleanLineXML....................................................................................................procedure end\n";
+			return $line;
+		}
+		//-/
+
+
+		//- b2GetVersionFromHistory //-------------------------------------------------------------------------------------------------------------//
+		// 히스토리 로그에서 버전 번호를 추출, develop인지 release인지도 함께 추출
+		global proc string[] b2GetVersionFromHistory(string $text)
+		{
+			print "b2GetVersionFromHistory............................................................................................procedure start\n";
+			string $return[];
+			string $type;
+			string $typeLine = `match "Event: [a-zA-Z]* " $text`;
+			if (size(`match "develop" $typeLine`))
+			{
+				$type = "develop";
+			}
+			else if (size(`match "release" $typeLine`))
+			{
+				$type = "release";
+			}
+			else
+			{
+				$type ="";
+				warning "there are no version type in history log. please contact pipeline manager";
+			}
+			string $versionLine = `match "(Version: [0-9]{3}.[0-9]{3})" $text`;
+			if (size($versionLine))
+			{
+				string $tokenizedString[];
+				int $num = `tokenize $versionLine "." $tokenizedString`;
+				string $mainVersion = substituteAllString ($tokenizedString[0], "Version: ", "");
+				string $subVersion = $tokenizedString[1];
+				$return = {$type,$mainVersion,$subVersion};	
+
+			}
+			else
+			{
+				$versionLine = `match "(Version: [0-9]{3})" $text`;	
+				string $mainVersion = `match "[0-9]{3}" $versionLine`;
+				$return = { $type, $mainVersion, "000" };
+			}
+			print "b2GetVersionFromHistory..............................................................................................procedure end\n";
+			return $return;
+		}
+		//-/
+
+
+		//- b2AddCommentToHistroy //---------------------------------------------------------------------------------------------------------------//
+		// 기능		- 히스토리 파일에 내용 기록
+		// 입력		- $historyPath <-- 파일경로(full path)
+		//			- $event <-- develop/release
+		//			- $version <-- 버전(integer)
+		//			- $userName <-- 로긴 유저
+		//			- $comment <-- 유저 코멘트
+		// 작동절차	- 정해진 경로에 파일이 없다면 생성하고 있다면 내용을 추가
+		// 출력 	- 성공여부
+		
+		global proc int b2AddCommentToHistory(string $historyPath, string $event, int $version, string $userName, string $comment)
+		{
+			print "b2AddCommentToHistory..............................................................................................procedure start\n";
+			int $exists = `filetest -e $historyPath`;
+			string $versionString = b2Pad($version, 3);
+			int $fileId=`fopen $historyPath "a"`;
+			string $dateTime[] = `b2GetDateTime`;
+			fprint $fileId "	<note>\n";
+			fprint $fileId ("		<author>" + $userName + "</author>\n");
+			fprint $fileId ("		<date>" + $dateTime[0] + "</date>\n");
+			fprint $fileId ("		<time>" + $dateTime[1] + "</time>\n");			
+			fprint $fileId ("		<event>"+$event+"</event>\n");
+			if ($version)
+			fprint $fileId ("		<version>"+$versionString+"</version>\n");
+			fprint $fileId ("		<comment>" + $comment + "</comment>\n");
+			fprint $fileId "	</note>\n";
+			fclose $fileId;
+			print "b2AddCommentToHistory................................................................................................procedure end\n";
+			return 1;
+		}
+		//-/
+
+
+		//- b2GetShotDefInfo //--------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 샷 디렉토리 안의 .xml파일을 읽어 각 항목을 array로 반환
+		// 작동절차	- .xml파일의 내용을 읽어들여 array로 반환.
+		// 입력		-
+		// 출력		- stringArray
+		//
+		global proc string[] b2GetShotDefInfo( string $defFile )
+		{
+			print "b2GetShotDefInfo...................................................................................................procedure start\n";
+			string $value[];
+			string $textArray[] = `b2ReadAllNotes "shotDefInfo" $defFile`;
+			string $latestInfo = $textArray[0];
+
+			string $shtName = `match "<shtName>.*</shtName>" $latestInfo`;
+				$shtName = substitute ("<shtName>", $shtName, "");
+				$shtName = substitute ("</shtName>", $shtName, "");
+			string $imgWidth = `match "<imgWidth>[0-9]*</imgWidth>" $latestInfo`;
+				$imgWidth = substitute("<imgWidth>", $imgWidth, "");
+				$imgWidth = substitute("</imgWidth>", $imgWidth, "");
+			string $imgHeight = `match "<imgHeight>[0-9]*</imgHeight>" $latestInfo`;
+				$imgHeight = substitute("<imgHeight>", $imgHeight, "");
+				$imgHeight = substitute("</imgHeight>", $imgHeight, "");
+			string $stFrame = `match "<stFrame>[0-9]*</stFrame>" $latestInfo`;
+				$stFrame = substitute("<stFrame>", $stFrame, "");
+				$stFrame = substitute("</stFrame>", $stFrame, "");
+			string $edFrame = `match "<edFrame>[0-9]*</edFrame>" $latestInfo`;
+				$edFrame = substitute("<edFrame>", $edFrame, "");
+				$edFrame = substitute("</edFrame>", $edFrame, "");
+			string $frameRate = `match "<fps>[0-9a-zA-Z]*</fps>" $latestInfo`;
+				$frameRate = substitute("<fps>", $frameRate, "");
+				$frameRate = substitute("</fps>", $frameRate, "");
+			string $pxRatio = `match "<pxRatio>[0-9].[0-9]*" $latestInfo`;
+				$pxRatio = substitute("<pxRatio>", $pxRatio, "");
+				$pxRatio = substitute("</pxRatio>", $pxRatio, "");
+				
+			$value[0] = $shtName;
+			$value[1] = $imgWidth;
+			$value[2] = $imgHeight;
+			$value[3] = $stFrame;
+			$value[4] = $edFrame;
+			$value[5] = $frameRate;
+			$value[6] = $pxRatio;
+			print "b2GetShotDefInfo.....................................................................................................procedure end\n";
+			return $value;
+		}
+		//-/
+
+
+		//- b2SaveShotDefInfo //-------------------------------------------------------------------------------------------------------------------//
+		// 기능		- 입력받은 array 정보를 정해진 def.xml파일에 기록.
+		// 입력		- $shtInfoArray[0] : 샷 이름
+		//			- $shtInfoArray[1],[2] : 이미지 해상도
+		//			- $shtInfoArray[3],[4] : 시작,끝 프레임
+		//			- $shtInfoArray[5] : fps
+		//			- $shtInfoArray[6] : pixelRatio
+		//
+		global proc b2SaveShotDefInfo( string $shtInfoArray[], string $defFile )
+		{
+			print "b2SaveShotDefInfo..................................................................................................procedure start\n";
+			int $fileId = `fopen $defFile "a"`;
+			fprint $fileId "<shotDefInfo>\n";
+			fprint $fileId ("	<shtName>" + $shtInfoArray[0] + "</shtName>\n");
+			fprint $fileId ("	<imgWidth>" + $shtInfoArray[1] + "</imgWidth>\n");
+			fprint $fileId ("	<imgHeight>" + $shtInfoArray[2] + "</imgHeight>\n");
+			fprint $fileId ("	<stFrame>" + $shtInfoArray[3] + "</stFrame>\n");
+			fprint $fileId ("	<edFrame>" + $shtInfoArray[4] + "</edFrame>\n");
+			fprint $fileId ("	<fps>" + $shtInfoArray[5] + "</fps>\n");
+			fprint $fileId ("	<pxRatio>" + $shtInfoArray[6] + "</pxRatio>\n");
+			fprint $fileId "</shotDefInfo>\n";
+			fclose $fileId;
+			print "b2SaveShotDefInfo....................................................................................................procedure end\n";
+			// deleteUI "b2SubWin1";
+		}
+
+		//-/
+
+
+		//- b2GetCurrSceneInfo //-------------------------------------------------------------------------------------------------------------------//
+		//
+		global proc string[] b2GetCurrSceneInfo()
+		{
+			print "b2GetCurrSceneInfo.................................................................................................procedure start\n";
+			string $shtInfo[];
+			string $currSceneName = `file -q -sceneName`;
+			string $buffer[] = stringToStringArray( $currSceneName, "/" );
+				$currSceneName = $buffer[size($buffer) - 1];
+			string $currXRes = `getAttr defaultResolution.width`;
+			string $currYRes = `getAttr defaultResolution.height`;
+			string $currStFrame = `playbackOptions -q -min`;
+			string $currEdFrame = `playbackOptions -q -max`;
+			string $currFps = `currentUnit -q -time`;
+			string $currPxRatio = `getAttr defaultResolution.pixelAspect`;
+			string $currDevAspect = `getAttr defaultResolution.deviceAspectRatio`;
+			
+			$shtInfo = { $currSceneName, $currXRes, $currYRes, $currStFrame, $currEdFrame, $currFps, $currDevAspect };
+			
+			print "b2GetCurrSceneInfo...................................................................................................procedure end\n";
+			return $shtInfo;
+		}
+		//-/

@@ -1,0 +1,19 @@
+global proc int qlUpdateSelfColorMap() 
+{
+	string $sel[] = `ls -sl -o`;
+	string $sim;
+	string $mesh;
+	string $nodes[];
+
+	$sim = qlGetSimulator();
+	
+	if($sim=="")
+	{
+		error "select a cloth mesh or a solver";
+		return 0;
+	}
+	
+	qlCommand -n $sim -c "updateCollisionColorMap";
+	
+	return 1;
+}

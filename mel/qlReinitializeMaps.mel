@@ -1,0 +1,33 @@
+global proc int qlReinitializeMaps() 
+{
+	string $sims[];
+	string $clothes[];
+	string $sim;
+	string $cloth;
+	string $nodes[];
+
+	$clothes = qlGetClothes();
+	$sims = qlGetSimulators();
+	
+	if(size($sims) == 0 && size($clothes) == 0) 
+	{
+		return 0;
+	}
+	
+	if(size($sims)>0 && size($clothes)==0)
+	{
+		for($sim in $sims)
+		{
+			$nodes = qlGetClothesBelongToThisSolver($sim);
+			$clothes = stringArrayCatenate($clothes, $nodes);
+		}
+	}
+
+	for($cloth in $clothes)
+	{
+		if($cloth=="") continue;
+		qlCommand -n $cloth -c "initMaps";
+	}
+	
+	return 1;
+}

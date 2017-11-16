@@ -1,0 +1,457 @@
+global proc QualothMenu( string $parent )
+{
+    setParent -m $parent;
+    if( `menu -q -ni $parent` != 0 ) {
+      //	Menu is built already - just return
+      return;
+    }
+
+    // cloth -----------------------------------------------------------
+    menuItem -l "Create Cloth" -ec 1
+      -annotation "create a cloth from a polygon mesh : select a mesh"
+      -c "qlCreateCloth" qlCreateClothItem;
+    menuItem -ob 1 -c "qlCreateClothOptions" qlCreateClothOptionsItem1;
+
+	menuItem -l "Create Pattern" -ec 1
+      -annotation "create a pattern from a set of planar curves: select curves"
+      -c "qlCreatePattern" qlCreatePatternItem;
+    menuItem -ob 1 -c "qlCreateClothOptions" qlCreateClothOptionsItem2;
+
+	menuItem -l "Create Seam" -ec 1
+      -annotation "create a seam : select two curves"
+      -c "qlCreateSeam" qlCreateSeamItem;
+
+    menuItem -l "Create Collider" -ec 1
+      -annotation "create a collider : select a cloth and a collision object"
+      -c "qlCreateCollider" qlCreateColliderItem;
+
+	menuItem -l "Create Spring" -ec 1
+	-ann "create a spring: select two cloth vertices"
+	-c "qlCreateSpring" qlCreateSpringItem;
+
+	menuItem -l "Create Attach Spring" -ec 1
+	-ann "create a attach spring: select the vertices of the first cloth, and the second cloth mesh"
+	-c "qlCreateAttachSpring" qlCreateAttachSpringItem;
+
+	menuItem -divider true;
+
+	menuItem -l "Clear Velocity" -ec 1
+	-ann "set current sim velocities to zero : select a cloth"
+	-c "qlClearVelocity" qlClearVelocityItem;
+
+
+	menuItem -l "Truncate Cache" -ec 1
+	-ann "truncate cache : select a cloth"
+	-c "qlTruncateCache" qlTruncateCacheItem;
+
+	menuItem -divider true;
+	
+	menuItem -subMenu true -to true -l "Change Solver" 
+      -annotation "transfer a cloth to a different solver : select a cloth mesh"
+      -pmc qlUpdateChangeSolverMenuItem
+      qlChangeSolverItem;
+      
+    setParent -menu ..;
+	
+	menuItem -subMenu true -to true -l "Convert Selection";
+	
+	menuItem -l "to Solvers"  -ec 1 -ann "convert selection to the connected solvers" -c "qlConvertSelectionToSolvers" qlConvertSelectionToSolversItem ;
+	
+	menuItem -l "to Clothes"  -ec 1 -ann "convert selection to the connected clothes" -c "qlConvertSelectionToClothes" qlConvertSelectionToClothesItem ;
+	
+	menuItem -l "to Constraints"  -ec 1 -ann "convert selection to the connected constraints" -c "qlConvertSelectionToConstraints" qlConvertSelectionToConstraintsItem ;
+	
+	menuItem -l "to Colliders"  -ec 1 -ann "convert selection to the connected colliders" -c "qlConvertSelectionToColliders" qlConvertSelectionToCollidersItem ;
+	
+	menuItem -l "to Fields"  -ec 1 -ann "convert selection to the connected field(fluid) filters and source fields(fluids)" -c "qlConvertSelectionToFields" qlConvertSelectionToFieldsItem ;
+	
+	menuItem -l "to Springs"  -ec 1 -ann "convert selection to the connected springs" -c "qlConvertSelectionToSprings" qlConvertSelectionToSpringsItem ;
+	
+	menuItem -l "to Patterns"  -ec 1 -ann "convert selection to the connected patterns" -c "qlConvertSelectionToPatterns" qlConvertSelectionToPatternsItem ;
+	
+	menuItem -l "to Seams"  -ec 1 -ann "convert selection to the connected seams" -c "qlConvertSelectionToSeams" qlConvertSelectionToSeamsItem ;
+	
+	setParent -menu ..;
+
+    menuItem -subMenu true -to true -l "Constraint";
+
+    menuItem -l "Point Constraint"  -ec 1
+      -annotation "create point constraint : select cloth vertices"
+      -c "qlCreatePointConstraint"  qlCreatePointConstraintItem;
+
+	menuItem -l "Line Constraint"  -ec 1
+      -annotation "create line constraint : select cloth vertices"
+      -c "qlCreateLineConstraint"  qlCreateLineConstraintItem;
+
+	menuItem -l "Plane Constraint" -ec 1
+      -annotation "create plane constraint : select cloth vertices"
+      -c "qlCreatePlaneConstraint"  qlCreatePlaneConstraintItem;
+
+    menuItem -l "Attach Constraint" -ec 1
+      -annotation "attach vertices to object surface in contact : select cloth vertices"
+      -c "qlCreateAttachConstraint" qlCreateAttachConstraintItem;
+
+	menuItem -l "Goal Constraint" -ec 1
+      -annotation "add a goal shape constraint : select cloth and goal meshes"
+      -c "qlCreateGoalConstraint" qlCreateGoalConstraintItem;
+
+	menuItem -divider true;
+
+    menuItem -l "Get Vertices" -ec 1
+      -annotation "select a constraint"
+      -c "qlGetVertices" qlGetVerticesItem;
+
+    menuItem -l "Set Vertices" -ec 1
+      -annotation "select a constraint and cloth vertices"
+      -c "qlSetVertices" qlSetVerticesItem;
+
+    setParent -menu ..;
+	
+	menuItem -subMenu true -to true -l "Material Property";
+
+	menuItem -l "Create" -ec 1
+      -annotation "create a material property node and attach it to the selected patterns"
+      -c "qlCreateMaterialProperty" qlCreateMaterialPropertyItem;
+
+	menuItem -l "Remove" -ec 1
+      -annotation "remove material properties attached to the selected patterns"
+      -c "qlDeleteMaterialProperty" qlDeleteMaterialPropertyItem;
+      
+    setParent -menu ..;
+
+	menuItem -divider true;
+
+    menuItem -subMenu true -to true -l "Connect Objects";
+    
+    menuItem -subMenu true -to true -l "Field";
+
+	menuItem -l "As Velocity" -ec 1
+	-ann "connect a maya field to cloth as velocity field (wind drag) : select cloth vertices and a field"
+	-c "qlConnectField" qlConnectFieldItem;
+	
+	menuItem -l "As Force" -ec 1
+	-ann "connect a maya field to cloth as external force field : select cloth vertices and a field"
+	-c "qlConnectExternalForce" qlConnectExternalForceItem;
+	
+	setParent -menu ..;
+	
+	menuItem -subMenu true -to true -l "Fluid";
+	
+	menuItem -l "As Velocity" -ec 1
+	-ann "connect a fluid container to cloth: select a cloth mesh and a fluid container"
+	-c "qlConnectFluidAsVelocity" qlConnectFluidAsVelocityItem;
+	
+	menuItem -l "As Force" -ec 1
+	-ann "connect a fluid container to cloth: select a cloth mesh and a fluid container"
+	-c "qlConnectFluidAsForce" qlConnectFluidAsForceItem;
+	
+	setParent -menu ..;
+	
+	menuItem -l "Rest Shape" -ec 1 -en 1
+	-ann "connect a mesh to cloth as the rest shape: select a cloth and a mesh"
+	-c "qlConnectRestShape" qlConnectRestShapeItem;
+	
+	menuItem -l "Cache" -ec 1 -en 1
+	-ann "connect a cache node to any mesh : select a mesh"
+	-c "qlConnectCache" qlConnectCacheItem;
+
+	menuItem -l "Button Object" -ec 1
+	-ann "attach an object to a polygon mesh : select a button object and a mesh (The selection order matters)"
+	-c "qlCreateButtonConstraint" qlCreateButtonConstraintItem;
+	
+	setParent -menu ..;
+	
+	menuItem -subMenu true -to true -l "Disconnect Objects";
+	
+	menuItem -l "Rest Shape" -ec 1 -en 1
+	-ann "disconnect the rest shape: select a cloth"
+	-c "qlDisconnectRestShape" qlDisconnectRestShapeItem;
+
+	menuItem -l "Fluid" -ec 1 -en 1
+	-ann "disconnect the fluid: select a cloth and a fluid"
+	-c "qlDisconnectFluid" qlDisconnectFluidItem;
+
+	setParent -menu ..;
+	 
+    menuItem -divider true;
+
+	menuItem -l "Update Initial Pose" -ec 1 -en 1
+	-ann "update initial pose: select a cloth (and a reference mesh optionally)"
+	-c "qlUpdateInitialPose" qlUpdateInitialPoseItem;
+
+	menuItem -l "Update Collision Color Map" -ec 1 -en 1
+	-annotation "update the self collision color maps"
+	-c "qlUpdateSelfColorMap" qlUpdateSelfColorMapItem;
+
+	menuItem -l "Update Tweaks" -ec 1
+	-annotation "update the verties' tweaks to the cache file"
+	-c "qlUpdateTweaks" qlUpdateTweaksItem;
+	
+	menuItem -l "Clear Cache" -ec 1
+	-ann "clear cache : select a cloth"
+	-c "qlClearCache" qlClearCacheItem;
+
+menuItem -divider true;
+
+	menuItem -subMenu true -to true -l "Save";
+
+	menuItem -l "Save Hysteresis" -ec 1 -en 1
+	-ann "save hysteresis: select a cloth"
+	-c "qlSaveHysteresisDialog" qlSaveHysteresisDialogItem;
+	
+	menuItem -l "Save Attribute Maps" -ec 1 -en 1
+	-ann "select a cloth"
+	-c "qlSaveAttributeMapsDialog" qlSaveAttributeMapsDialogItem;
+	
+	setParent -menu ..;
+	
+	menuItem -subMenu true -to true -l "Load";
+
+	menuItem -l "Load Hysteresis" -ec 1 -en 1
+	-ann "load hysteresis: select a cloth"
+	-c "qlLoadHysteresisDialog" qlLoadHysteresisDialogItem;	
+
+	menuItem -l "Load Attribute Maps" -ec 1 -en 1
+	-ann "select a cloth"
+	-c "qlLoadAttributeMapsDialog" qlLoadAttributeMapsDialogItem;
+	
+	setParent -menu ..;
+
+menuItem -divider true;
+
+		menuItem -l "Enable Collision Between Two Objects" -ec 1 -en 1
+        -ann "select two clothes, or a cloth/collider pair"
+        -c "qlEnableCollision_UI" qlEnableCollisionItem;
+
+        menuItem -l "Disable Collision Between Two Objects" -ec 1 -en 1
+        -ann "select two clothes, or a cloth/collider pair"
+        -c "qlDisableCollision_UI" qlDisableCollisionItem;
+
+menuItem -divider true;
+	menuItem -subMenu true -to true -l "Paint Attributes";
+
+	menuItem -subMenu true -to true -l "Cloth Attributes";;
+	menuItem -l "Length Scale Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute lengthScaleMap" qlPaintClothlengthScaleMapItem;
+	menuItem -l "Density Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute densityMap" qlPaintClothdensityMapItem;
+	menuItem -l "Friction Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute frictionMap" qlPaintClothfrictionMapItem;
+	menuItem -l "Stretch Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute stretchMap" qlPaintClothstretchMapItem;
+	menuItem -l "Compression Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute compressionMap" qlPaintClothcompressionMapItem;
+	menuItem -l "Shear Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute shearMap" qlPaintClothshearMapMapItem;
+	menuItem -l "Stretch Damp Map" -ec 1 -ann "select a cloth" -en 1 -c "qlPaintClothAttribute stretchDampMap" qlPaintClothstretchDampMapItem;
+	menuItem -l "Bend Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute bendMap" qlPaintClothbendMapItem;
+	menuItem -l "Bend Damp Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute bendDampMap" qlPaintClothbendDampMapItem;
+	menuItem -l "Plasticity Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute plasticityMap" qlPaintClothplasticityMapItem;
+	menuItem -l "Pressure Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute pressureMap" qlPaintClothpressureMapItem;
+	menuItem -l "Viscous Damp Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute viscousDampMap" qlPaintClothviscousDampMapItem;
+	menuItem -l "Rubber Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute rubberMap" qlPaintClothrubberMapItem;
+	menuItem -l "Air Drag Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute airDragMap" qlPaintClothairDragMapItem;
+	menuItem -l "Field Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute fieldMap" qlPaintClothfieldMapItem;
+	menuItem -l "Soft Constraint Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute softConstraintMap" qlPaintClothsoftConstraintMapItem;
+	menuItem -l "Proximity Criterion Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute proximityCriterionMap" qlPaintClothproximityCriterionMapItem;
+	menuItem -l "Thickness Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute thicknessMap" qlPaintCloththicknessMapItem;
+	menuItem -l "Self Collision Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute selfCollisionMap" qlPaintClothselfCollisionMapItem;
+	menuItem -l "Solid Collision Map" -ec 1 -en 1 -ann "select a cloth" -c "qlPaintClothAttribute solidCollisionMap" qlPaintClothsolidCollisionMapItem;
+	setParent -menu ..;
+
+	menuItem -subMenu true -to true -l "Collider Attributes";
+	menuItem -l "Offset Map" -ec 1 -en 1 -ann "select a collider mesh or the corresponding offset mesh" -c "qlPaintColliderAttribute offsetMap" qlPaintCollideroffsetMapItem;
+	menuItem -l "Friction Map" -ec 1 -en 1 -ann "select a collider mesh or the corresponding offset mesh" -c "qlPaintColliderAttribute frictionMap" qlPaintColliderfrictionMapItem;
+	menuItem -l "Collision Map" -ec 1 -en 1 -ann "select a collider mesh or the corresponding offset mesh" -c "qlPaintColliderAttribute collisionMap" qlPaintCollidercollisionMapItem;
+	menuItem -l "Priority Map" -ec 1 -en 1 -ann "select a collider mesh or the corresponding offset mesh" -c "qlPaintColliderAttribute priorityMap" qlPaintColliderpriorityMapItem;
+	setParent -menu ..;
+
+	menuItem -subMenu true -to true -l "Goal Constraint Attributes";
+	menuItem -l "Strength Map" -ec 1 -en 1 -ann "select a goal constraint or the corresponding weight mesh" -c "qlPaintGoalConstraintAttribute strengthMap" qlPaintGoalConstraintstrengthMapItem;
+	menuItem -l "Damping Map" -ec 1 -en 1 -ann "select a goal constraint or the corresponding weight mesh" -c "qlPaintGoalConstraintAttribute dampingMap" qlPaintGoalConstraintdampingMapItem;
+	menuItem -l "Force Limit Map" -ec 1 -en 1 -ann "select a goal constraint or the corresponding weight mesh" -c "qlPaintGoalConstraintAttribute forceLimitMap" qlPaintGoalConstraintforceLimitMapItem;
+	setParent -menu ..;
+
+	menuItem -subMenu true -to true -l "Mesh Mixer Attributes";
+	menuItem -l "Weight Map 1" -ec 1 -en 1 -ann "select a mixed mesh" -c "qlPaintMeshMixerAttribute weightMap1" qlPaintMeshMixerWeightMapItem1;
+	menuItem -l "Weight Map 2" -ec 1 -en 1 -ann "select a mixed mesh" -c "qlPaintMeshMixerAttribute weightMap2" qlPaintMeshMixerWeightMapItem2;
+	menuItem -l "Weight Map 3" -ec 1 -en 1 -ann "select a mixed mesh" -c "qlPaintMeshMixerAttribute weightMap3" qlPaintMeshMixerWeightMapItem3;
+	menuItem -l "Weight Map 4" -ec 1 -en 1 -ann "select a mixed mesh" -c "qlPaintMeshMixerAttribute weightMap4" qlPaintMeshMixerWeightMapItem4;
+	menuItem -l "Weight Map 5" -ec 1 -en 1 -ann "select a mixed mesh" -c "qlPaintMeshMixerAttribute weightMap5" qlPaintMeshMixerWeightMapItem5;
+	setParent -menu ..;
+
+	menuItem -subMenu true -to true -l "Field Filter Attributes";
+	menuItem -l "Weight Map" -ec 1 -en 1 -ann "select a field filter or the corresponding weight mesh" -c "qlPaintFieldFilterAttribute weightMap" qlPaintFieldFilterWeightMapItem;
+	setParent -menu ..;
+
+	setParent -menu ..;
+	
+menuItem -divider true;
+		menuItem -l "Show Strain" -ec 1 -en 1
+        -ann "select cloth meshes"
+        -c "qlShowStrain" qlShowStrainItem;
+
+        menuItem -l "Hide Strain" -ec 1 -en 1
+        -ann "select cloth meshes"
+        -c "qlHideStrain" qlHideStrainItem;
+
+// menuItem -divider true;
+
+//	menuItem -l "Set Local Space Simulation" -ec 1 -en 0
+//        -ann "select a cloth"
+//        -c "qlSetLocalSpace" qlSetLocalSpaceItem;
+//
+//        menuItem -l "Set World Space Simulation" -ec 1 -en 0
+//        -ann "select a cloth"
+//        -c "qlSetWorldSpace" qlSetWorldSpaceItem;
+
+menuItem -divider true;
+
+	menuItem -l "Bake Mesh Per Frame" -ec 1
+	-ann "bake a mesh to a cache file : select a polygon mesh"
+	-c "qlBakeMeshPerFrame" qlBakeMeshPerFrameItem;
+
+	menuItem -l "Create Mesh Mixer" -ec 1
+	-ann "create a mesh mixer : select polygon meshes"
+	-c "qlCreateMeshMixer" qlCreateMeshMixerItem;
+	
+	menuItem -l "Weld Proximate Vertices" -ec 1
+	-ann "select cloth meshes : proximate vertex pairs will be connected by springs with 0 rest lengths."
+	-c "qlWeldProximateVertices" qlWeldProximateVerticesItem;
+	menuItem -ob 1 -c "qlWeldProximateVerticesOptions" qlWeldProximateVerticesOptionsItem;
+
+	menuItem -l "Get Curve Vertices" -ec 1
+	-ann "select cloth vertices corresponding to the selected curve: select a nurbs curve composing a pattern"
+	-c "qlSelectCurveVertices" qlSelectCurveVerticesItem;
+
+	menuItem -l "Cloth Mesh Extrusion" -ec 1
+	-ann "select polygon meshes to be extruded with rounded borders"
+	-c "qlCreateRoundedExtrusion" qlCreateRoundedExtrusionItem;
+	
+	menuItem -l "Reinitialize Maps" -ec 1 -en 1
+	-annotation "Reinitialize attributes maps of cloth(es)"
+	-c "qlReinitializeMaps" qlReinitializeMapsItem;
+	
+	menuItem -subMenu 1 -to true -l "Local Simulation";
+	
+	menuItem -l "Start" -ec 1 -en 1
+	-annotation "start local simulation"
+	-c "qlStartLocalSimulation" qlStartLocalSimulationItem;
+
+	menuItem -l "Stop" -ec 1 -en 1
+	-annotation "Stop local simulation"
+	-c "qlStopLocalSimulation" qlStopLocalSimulationItem;
+	
+	setParent -menu ..;
+
+	menuItem -l "Reinitialize Solver" -ec 1 -en 1
+	-annotation "Reinitialize Solver"
+	-c "qlReinitializeSolver" qlReinitializeSolverItem;
+
+	menuItem -divider true;
+	menuItem -l "Convert Q2013 to Q2014" -ec 1
+	-annotation "Convert Qualoth 2013 scene to Qualoth 2014"
+	-c "qlConvert31to32" qlConvert31to32Item;
+	
+    menuItem -divider true;
+	menuItem -l "Global Settings" -ec 1
+	-annotation "Global Settings"
+	-c "qlGlobalSettingsWindow" qlGlobalSettingsWindowItem;
+
+
+    }
+
+//---------------------------------------------------------------------------//
+global proc QualothBuildMenu()
+{
+
+    string $menuModeText;
+    // maya menus
+    global string $gMainWindow;
+    global string $gMainHelpMenu;
+    // qualoth menu
+    global string $gQualothMenu;
+    
+    if ( `menu -exists mainQualothMenu` )
+        deleteUI mainQualothMenu;
+
+    setParent $gMainWindow;
+
+    $gQualothMenu = `menu -l "Qualoth" -to true -pmo true -aob true mainQualothMenu`;
+    menu -e -pmc ("QualothMenu " + $gQualothMenu) $gQualothMenu;
+    
+    hotBox -um;
+    
+    global string $qlCurrentSolver = "New Solver";
+	global float $gQualothWeldProximity = 0.000001;
+    
+    scriptJob -ct "delete" qlUpdateQualothSolverList -p $gQualothMenu;
+    scriptJob -ct "deleteUndo" qlUpdateQualothSolverList -p $gQualothMenu;
+    scriptJob -ct "deleteRedo" qlUpdateQualothSolverList -p $gQualothMenu;
+    scriptJob -ct "deleteAllCondition" qlUpdateQualothSolverList -p $gQualothMenu;
+}
+
+global proc QualothDeleteMenu()
+{
+ if ( `menu -exists mainQualothMenu` )
+   deleteUI mainQualothMenu;
+}
+
+source "qlUtil.mel";
+source "qlConvertSelection.mel";
+source "qlBatchRun.mel";
+source "qlCreateRoundedExtrusion.mel";
+source "qlCreateCloth.mel";
+source "qlCreateClothOptions.mel";
+source "qlCreatePattern.mel";
+source "qlCreateSeam.mel";
+source "qlCreateSpring.mel";
+source "qlCreateAttachSpring.mel";
+source "qlCreateCollider.mel";
+source "qlChangeSolver.mel";
+source "qlCreatePointConstraint.mel";
+source "qlCreateLineConstraint.mel";
+source "qlCreatePlaneConstraint.mel";
+source "qlCreateAttachConstraint.mel";
+source "qlCreateGoalConstraint.mel";
+source "qlCreateButtonConstraint.mel";
+source "qlConnectField.mel";
+source "qlConnectExternalForce.mel";
+source "qlConnectFluid.mel";
+source "qlConnectRestShape.mel";
+source "qlUpdateMaps.mel";
+source "qlUpdateSelfColorMap.mel";
+source "qlUpdateTweaks.mel";
+source "qlClearCache.mel";
+source "qlClearVelocity.mel";
+source "qlTruncateCache.mel";
+source "qlHysteresisDialog.mel";
+source "qlAttributeMapsDialog.mel";
+source "qlLocalSimulation.mel";
+source "qlCreateMeshMixer.mel";
+source "qlUpdateInitialPose.mel";
+source "qlGetVertices.mel";
+source "qlGetCurveVertices.mel";
+source "qlSetVertices.mel";
+source "qlReinitializeSolver.mel";
+source "qlReinitializeMaps.mel";
+source "qlConnectCache.mel";
+source "qlBakeMesh.mel";
+source "qlReferenceCoordinate.mel";
+source "qlCreateMaterialProperty.mel";
+source "qlGlobalSettingsWin.mel";
+source "qlEnableCollision.mel";
+source "qlPaintAttributes.mel";
+source "AEqlSolverShapeTemplate.mel";
+source "AEqlClothShapeTemplate.mel";
+source "AEqlColliderShapeTemplate.mel";
+source "AEqlConverterTemplate.mel";
+source "AEqlDiscretizerTemplate.mel";
+source "AEqlLineConstraintShapeTemplate.mel";
+source "AEqlPlaneConstraintShapeTemplate.mel";
+source "AEqlPointConstraintShapeTemplate.mel";
+source "AEqlAttachConstraintShapeTemplate.mel";
+source "AEqlSpringShapeTemplate.mel";
+source "AEqlAttachSpringShapeTemplate.mel";
+source "AEqlPatternTemplate.mel";
+source "AEqlSeamShapeTemplate.mel";
+source "AEqlMeshMixerTemplate.mel";
+source "AEqlFieldFilterShapeTemplate.mel";
+source "AEqlCacheTemplate.mel";
+source "qlMakePaintable.mel";
+
+

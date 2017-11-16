@@ -1,0 +1,48 @@
+global proc int qlSaveHysteresisCB(string $cloth, string $filename, string $filetype)
+{
+	if(`qlCommand -n $cloth -c "saveHysteresis" -a $filename` == 1) {
+		setAttr ($cloth+".hysteresisName") -type "string" $filename;
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
+global proc int qlSaveHysteresisDialog() 
+{
+	string $cloth;
+	$cloth = qlGetCloth();
+	if($cloth == "") {
+		error "select a cloth";
+		return 0;
+	}
+	string $cmd;
+	$cmd = "qlSaveHysteresisCB " +$cloth;
+	fileBrowser($cmd, "Save Hysteresis", "", 1);
+	return 1;
+}
+global proc int qlLoadHysteresisCB(string $cloth, string $filename, string $filetype)
+{
+	if(`qlCommand -n $cloth -c"openHysteresis" -a $filename` == 1) {
+		setAttr ($cloth+".hysteresisName") -type "string" $filename;
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
+global proc int qlLoadHysteresisDialog() 
+{
+	string $cloth;
+	$cloth = qlGetCloth();
+	if($cloth == "") {
+		error "select a cloth";
+		return 0;
+	}
+	string $cmd;
+	$cmd = "qlLoadHysteresisCB " +$cloth;
+	fileBrowser($cmd, "Load Hysteresis", "", 0);
+	return 1;
+}

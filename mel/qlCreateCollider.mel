@@ -1,0 +1,41 @@
+global proc string qlCreateCollider() 
+{
+	string $nodes[];
+	string $node;
+	string $sim;
+	string $mesh;
+	string $collider;
+	string $offsetmesh;
+	string $triangulate;
+	int $i;
+
+	$nodes = qlGetSimulatorAndObjects();
+	if(size($nodes) < 2)
+	{
+		error "select a cloth and a collision mesh(es)";
+		return "";
+	}
+	$sim = $nodes[0];
+
+	for($i=1;$i<size($nodes);$i++)
+	{ 
+		$mesh = $nodes[$i];
+		$collider = `createNode qlColliderShape`;
+		$parents = `listRelatives -p $collider`;
+		$offsetmesh = $parents[0]+"OffsetShape";
+		createNode mesh -n $offsetmesh;
+		$parents = `listRelatives -p $offsetmesh`;
+
+		$triangulate = `createNode qlTriangulate`;
+
+		connectAttr ($mesh + ".worldMesh") ($triangulate+ ".input");
+		connectAttr ($triangulate+ ".output") ($collider + ".input");
+		connectAttr -na ($collider + ".output")  ($sim + ".collider");
+		connectAttr ($collider+ ".output") ($offsetmesh + ".inMesh");
+		hide ($parents[0]);
+		select -r $offsetmesh;
+		assignShadingGroup initialShadingGroup;
+	}
+	select $collider;
+	return $collider;
+}

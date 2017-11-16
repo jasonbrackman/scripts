@@ -1,0 +1,15 @@
+global proc string qlUpdateMaps() 
+{
+	string $sim;
+
+	$sim = qlGetSimulator();
+
+	if($sim == "") {
+		return "";
+	}
+
+	qlCommand -n $sim -c "updateMaps";
+
+	select $sim;
+	return $sim;
+}

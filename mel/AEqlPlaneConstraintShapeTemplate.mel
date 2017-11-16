@@ -1,0 +1,27 @@
+global proc  AEqlPlaneConstraintShapeTemplate(string $nodeName)
+{
+	editorTemplate -beginScrollLayout;
+
+	
+	editorTemplate -beginLayout "PlaneConstraint Property" -collapse 0;
+		editorTemplate -addControl "active";
+		editorTemplate -addControl "enableCollision";
+		editorTemplate -addControl "soft";
+		editorTemplate -addControl "stiffness";
+		editorTemplate -addControl "damping";
+		editorTemplate -addControl "planeNormal";
+		editorTemplate -suppress "vertexIndices";
+		editorTemplate -suppress "inputMatrix";
+		editorTemplate -suppress "initPositions";
+		editorTemplate -suppress "outputPositions";
+		editorTemplate -suppress "filterMatrix";
+		editorTemplate -suppress "constraint";
+	editorTemplate -endLayout;
+
+	// Include base class attributes.
+	//
+	AEdependNodeTemplate $nodeName;
+	editorTemplate -addExtraControls;
+
+	editorTemplate -endScrollLayout;
+}

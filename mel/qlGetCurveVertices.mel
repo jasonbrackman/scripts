@@ -1,0 +1,119 @@
+global proc int qlSelectCurveVertices() 
+{
+	int $i,$numCurve;
+	string $selectionList[];
+	string $plugs[];
+	string $nodes[];
+	string $curveName;
+	string $pattern;
+	string $disc;
+	string $sim;
+	string $cname;
+	string $tokens[];
+	int $vertices[];
+
+	$selectionList=`ls -sl -o -l`;
+
+        if(size($selectionList)!=1)
+        {
+                error "select a nurbs curve";
+                return 0;
+        }
+        $shapes = `listRelatives -f -typ "nurbsCurve" $selectionList[0]`;
+
+        if(size($shapes)!=1)
+        {
+                error "select a nurbs curve";
+                return 0;
+        }
+	
+	$curveName = $shapes[0];
+
+	$plugs = `listConnections -s 0 -d 1 -t "qlPattern" -p 1 ($curveName+".worldSpace")`;
+	if(size($plugs)!=1)
+	{
+		error "Each curve must belong to a pattern";
+		return 0;
+	}
+
+	tokenize $plugs[0] "." $tokens;
+	$pattern = $tokens[0];
+
+	$nodes = `listConnections -s 0 -d 1 -t "qlDiscretizer" ($pattern+".output")`;
+	if(size($nodes)!=1)
+	{
+		error "Each pattern must belong to a discretizer";
+		return 0;
+	}
+	$disc = $nodes[0];
+
+	$numCurve = `getAttr -s ($disc+".cva")`;
+
+	for($i=0;$i<$numCurve;$i++)
+	{
+		$cname = `getAttr ($disc+".cva["+$i+"].curveName")`;
+		if($cname == $curveName) 
+		{
+			$vertices = `getAttr ($disc+".cva["+$i+"].curveVertices")`;
+			break;
+		}
+	}
+	
+	select -clear;
+	$nodes = `listConnections -s 0 -d 1 -t "qlSimulatorShape" ($disc+".output")`;
+	if(size($nodes)>0)
+	{
+		$sim = $nodes[0];
+		$nodes = `listConnections -s 0 -d 1 -t "mesh" ($sim+".outputMesh")`;
+		if(size($nodes)>0)
+		{
+
+			for($i=0;$i<size($vertices);$i++)
+			{
+				select -add ($nodes[0]+".vtx["+$vertices[$i]+"]");
+			}
+		}
+	}
+	return size($vertices);
+}
+
+global proc int[] qlGetCurveVertices(string $curveName) 
+{
+	int $i,$numCurve;
+	string $plugs[];
+	string $nodes[];
+	string $pattern;
+	string $disc;
+	string $cname;
+	string $tokens[];
+	int $vertices[];
+
+	$plugs = `listConnections -s 0 -d 1 -t "qlPattern" -p 1 ($curveName+".worldSpace")`;
+	if(size($plugs)!=1)
+	{
+		return $vertices;
+	}
+
+	tokenize $plugs[0] "." $tokens;
+	$pattern = $tokens[0];
+
+	$nodes = `listConnections -s 0 -d 1 -t "qlDiscretizer" ($pattern+".output")`;
+	if(size($nodes)!=1)
+	{
+		return $vertices;
+	}
+	$disc = $nodes[0];
+
+	$numCurve = `getAttr -s ($disc+".cva")`;
+
+	for($i=0;$i<$numCurve;$i++)
+	{
+		$cname = `getAttr ($disc+".cva["+$i+"].curveName")`;
+		if($cname == $curveName) 
+		{
+			$vertices = `getAttr ($disc+".cva["+$i+"].curveVertices")`;
+			break;
+		}
+	}
+	return $vertices;
+}

@@ -1,0 +1,79 @@
+global proc updateHowManyThreads()
+{
+	int $nt = `intFieldGrp -q -v1 numThreads`;
+	qlCommand -t $nt;
+}
+global proc qlApplyOptions()
+{
+	updateHowManyThreads();
+}
+global proc createQualothGlobalSettingsLayout()
+{
+	global string $gQualothGlobalSettingsWindow = "qlGlobalSettingsWnd";
+	window -iconName "Qualoth Global Settings" -rtf true $gQualothGlobalSettingsWindow;
+
+	formLayout qlGlobalSettingsForm;
+	tabLayout qlGlobalSettingsTabs;
+
+	columnLayout qlPerformanceOptionsTab;
+	setParent ..;
+
+	columnLayout qlOtherOptionsTab;
+	setParent ..;
+
+	tabLayout -edit
+		-tabsVisible true
+                -tabLabel qlPerformanceOptionsTab "Performance Options"
+                -tabLabel qlOtherOptionsTab "Other Options"
+                qlGlobalSettingsTabs;
+
+	setParent ..;
+
+	button -label "Apply and Close" -c "qlApplyOptions; window -e -visible false $gQualothGlobalSettingsWindow" qlGlobalSettingsApplyAndCloseButton;
+	button -label "Apply" -c "qlApplyOptions" qlGlobalSettingsApplyButton;
+	button -label "Close" -c "window -e -visible false $gQualothGlobalSettingsWindow" qlGlobalSettingsCloseButton;
+
+	formLayout -edit
+        -af qlGlobalSettingsTabs "top" 5
+        -af qlGlobalSettingsTabs "left" 5
+        -af qlGlobalSettingsTabs "right" 5
+        -ac qlGlobalSettingsTabs "bottom" 5 qlGlobalSettingsApplyAndCloseButton
+
+        -af qlGlobalSettingsApplyAndCloseButton "left" 5 
+        -af qlGlobalSettingsApplyAndCloseButton "bottom" 5
+        -ap qlGlobalSettingsApplyAndCloseButton "right" 5 33
+
+	-ac qlGlobalSettingsApplyButton "left" 5 qlGlobalSettingsApplyAndCloseButton
+        -af qlGlobalSettingsApplyButton "bottom" 5
+        -ap qlGlobalSettingsApplyButton "right" 5 66
+
+        -ac qlGlobalSettingsCloseButton "left" 5 qlGlobalSettingsApplyButton
+        -af qlGlobalSettingsCloseButton "right" 5
+        -af qlGlobalSettingsCloseButton "bottom" 5
+            
+        qlGlobalSettingsForm;
+}
+global proc qlGlobalSettingsWindow()
+{
+	global string $gQualothGlobalSettingsWindow = "qlGlobalSettingsWnd";
+
+	if( ! `window -q -exists $gQualothGlobalSettingsWindow` )
+	{
+		createQualothGlobalSettingsLayout();
+	}
+
+	setParent qlPerformanceOptionsTab;
+
+	if(! `intFieldGrp -q -exists numThreads` )
+	{
+		setUITemplate -pushTemplate DefaultTemplate;
+		intFieldGrp -label "Number of threads to use" -v1 `qlCommand -t` numThreads;
+		setUITemplate -popTemplate;
+	}
+
+	tabLayout -edit -selectTab qlPerformanceOptionsTab qlGlobalSettingsTabs;
+
+	window -edit -title "Qualoth Global Settings" $gQualothGlobalSettingsWindow;
+
+	showWindow $gQualothGlobalSettingsWindow;
+}

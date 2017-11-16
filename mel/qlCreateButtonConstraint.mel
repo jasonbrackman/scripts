@@ -1,0 +1,38 @@
+global proc string qlCreateButtonConstraint() 
+{
+	string $sel[];
+	string $mesh;
+	string $buttonconst;
+	string $button;
+
+	$sel = `ls -sl -o`;
+	if(size($sel) != 2)
+	{
+		error "select a button object and a polygon mesh : The selection order matters";
+		return "";
+	}
+
+	$button = $sel[0];
+	$mesh = qlGetShape($sel[1]);
+
+	if(nodeType($button) != "transform" || nodeType($mesh) != "mesh") 
+	{
+		error "select a button object and a polygon mesh : The selection order matters";
+		return "";
+	}
+
+	$buttonconst = `createNode qlButtonConstraintShape -n ($button+"_ButtonShape")`;
+	string $parents[] = `listRelatives -p $buttonconst`;
+
+	connectAttr ($mesh+".worldMesh") ($buttonconst+".inputMesh");
+	float $center[] = `getAttr ($button+".center")`;
+	setAttr ($buttonconst+".inputPosition") $center[0] $center[1] $center[2];
+
+	connectAttr ($buttonconst+".outTranslate") ($parents[0]+".translate");
+	connectAttr ($buttonconst+".outRotate") ($parents[0]+".rotate");
+
+	parent $button $parents[0];
+
+	select $buttonconst;
+	return $buttonconst;
+}
