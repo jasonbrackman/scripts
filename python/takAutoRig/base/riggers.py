@@ -3,26 +3,23 @@ from maya import OpenMaya
 
 
 class SplineRigger():
-    def __init__(self, startJoint, endJoint, curve=None, name='new'):
+    def __init__(self, name='new'):
         self.name = name
-        self.startJoint = startJoint
-        self.endJoint = endJoint
-        self.curve = curve
-        self.createCurve = False if self.curve else True
 
-    def build(self, numOfCurveSpans=1):
-        if self.curve:
+    def build(self, startJoint, endJoint, curve=None, numOfCurveSpans=1):
+        if curve:
             OpenMaya.MGlobal.displayWarning('Curve is specified, numOfCurveSpans option will be ignored')
-            ikHandle, effecotor = pm.ikHandle(startJoint=self.startJoint, endEffector=self.endJoint,
-                                              createCurve=self.createCurve, curve=self.curve, solver='ikSplineSolver',
-                                              parentCurve=False, name=self.name + '_ikh', rootOnCurve=True)
+            ikHandle, effecotor = pm.ikHandle(startJoint=startJoint, endEffector=endJoint,
+                                              createCurve=False, curve=curve,
+                                              solver='ikSplineSolver', parentCurve=False,
+                                              name=self.name + '_ikh', rootOnCurve=True)
         else:
-            ikHandle, effector, self.curve = pm.ikHandle(startJoint=self.startJoint, endEffector=self.endJoint,
-                                                         createCurve=self.createCurve, numSpans=numOfCurveSpans,
-                                                         solver='ikSplineSolver', parentCurve=False,
-                                                         name=self.name + '_ikh', rootOnCurve=True)
+            ikHandle, effector, curve = pm.ikHandle(startJoint=startJoint, endEffector=endJoint,
+                                                    createCurve=True, numSpans=numOfCurveSpans,
+                                                    solver='ikSplineSolver', parentCurve=False,
+                                                    name=self.name + '_ikh', rootOnCurve=True)
 
-        clusters = self.createClusters(self.curve)
+        clusters = self.createClusters(curve)
 
         self.createControls(clusters)
 

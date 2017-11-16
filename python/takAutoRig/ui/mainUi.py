@@ -35,7 +35,8 @@ class MainUI(MayaQWidgetDockableMixin, QtWidgets.QDialog):
 
     def addWidget(self):
         mainTabWidget = QtWidgets.QTabWidget()
-        self.mainLayout.addWidget(mainTabWidget)
 
         mainTabWidget.addTab(bodyUi.BodyUI(), "Body")
         mainTabWidget.addTab(faceUi.FaceUI(), "Face")
+
+        self.mainLayout.addWidget(mainTabWidget)

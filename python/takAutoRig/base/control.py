@@ -3,12 +3,10 @@ from maya import cmds
 
 
 class Control():
-    def __init__(self, name='new', shape='circle', color='yellow'):
+    def __init__(self, name='new'):
         self.name = name
-        self.shape = shape
-        self.color = color
 
-    def create(self):
+    def create(self, shape='circle', color='yellow'):
         pm.curve(n='%s_ctrl' % self.name)
 
     def setShape(self):
